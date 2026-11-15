@@ -1,52 +1,119 @@
 # Davar
 
-DaVinci Resolve için kurgu öncesi yardımcı. Konuşma videolarında elle yapılan sıkıcı işleri üstlenir; dokuz iş akışından beşi çalışıyor, dördü planlandı.
+A pre-edit helper for DaVinci Resolve. It takes over the tedious manual work on talking-head videos: syncing audio, cutting silences and "uh / um" hesitations, transcribing, making lower thirds and vertical clips.
 
-| No | İş akışı | Durum | Ne yapar |
+*Türkçe: [README.tr.md](README.tr.md)*
+
+> **Status: early release.** So far it has been tried with one user's handful of videos. Always watch the cuts before you publish, and please open an issue if you find a bug.
+
+The name nods to two things: **Da**Vinci **R**esolve, and *Katır* ("mule"), İlker Canikligil's tool that pioneered this kind of workflow in Turkey. *Davar* is Turkish for a flock of sheep and goats, and like them it grazes off what your video does not need.
+
+![The Davar window](docs/screenshot.png)
+
+## Workflows
+
+Five of the nine workflows work; four are planned.
+
+| No | Workflow | Status | What it does |
 |---|---|---|---|
-| 01 | Ses | çalışıyor | Ayrı kaydedilmiş sesleri videodaki yerine oturtur, ses düzeyini YouTube'a göre ayarlar |
-| 02 | İlk Analiz | çalışıyor | Konuşmayı bir kez, kelime zamanlarıyla yazıya döker ve kaydeder; altyazı (`.srt`) ve metin (`.txt`) üretir |
-| 03 | Kaba Kurgu | çalışıyor | Sessizlikleri, "ııı / eee" duraksamalarını ve dolgu kelimelerini bulur; adayları onayına sunar; Resolve çizelgesi (`.fcpxml`) yazar |
-| 04 | Çok Kamera Kurgusu | planlandı | Kim konuşuyorsa onun kamerasını seçer |
-| 05 | İçerik Analizi | planlandı | Konuları, bölüm zamanlarını ve öne çıkan yerleri çıkarır |
-| 06 | Yazılar | çalışıyor | Konuşmacı adı ve unvanı için saydam zeminli, yumuşak giriş-çıkışlı KJ (alt bant) videosu üretir |
-| 07 | Görsel Malzeme | planlandı | Araya girecek fotoğraf ve belgelerin yerleşimi |
-| 08 | Sosyal Klipler | çalışıyor | Seçilen aralığı başlık, altyazı ve kapakla dikey Reels / Shorts olarak keser |
-| 09 | Yayın | planlandı | YouTube açıklaması, bölüm zamanları, başlık önerileri |
+| 01 | Audio | works | Puts separately recorded audio in its place in the video and sets the loudness for YouTube |
+| 02 | Transcribe | works | Transcribes the speech once with word-level timing and saves it; writes subtitles (`.srt`) and text (`.txt`) |
+| 03 | Rough Cut | works | Finds silences, "uh / um" hesitations and filler words, lets you review the candidates, writes a Resolve timeline (`.fcpxml`) |
+| 04 | Multicam Edit | planned | Picks the camera of whoever is speaking |
+| 05 | Content Analysis | planned | Extracts topics, chapter times and highlights |
+| 06 | Titles | works | Makes a transparent lower third with a soft entrance and exit for a speaker's name and title |
+| 07 | Visual Assets | planned | Places photos and documents to cut in |
+| 08 | Social Clips | works | Cuts a chosen range into a vertical Reels / Shorts video with headline, subtitles and cover |
+| 09 | Publish | planned | YouTube description, chapter times, title suggestions |
 
-Orijinal videoya hiçbir iş akışı dokunmaz. Resolve'un **ücretsiz sürümüyle** çalışır: Davar Resolve'u dışarıdan yönetmez, Resolve'un içe aktardığı dosyalar üretir.
+No workflow modifies your original video. Davar works with the **free version** of Resolve: it does not remote-control Resolve, it writes files that Resolve imports.
 
-> **Durum: erken sürüm.** Henüz tek bir kullanıcının birkaç videosuyla denendi. Kesimleri yayınlamadan önce mutlaka izle; hata bulursan konu (issue) aç.
+The interface is available in English and Turkish; pick the language at the top left of the window.
 
-Adı iki yere selam veriyor: **Da**Vinci **R**esolve'a ve bu işin Türkiye'deki öncüsü, İlker Canikligil'in **Katır**'ına.
+## Installation
 
-![Davar penceresi](docs/arayuz.png)
+You need:
 
-## 01 Ses
-
-Ayrı kaydedilmiş sesleri (yaka mikrofonu, ses kayıt cihazı, sonradan kaydedilmiş bölümler) videodaki yerine oturtur. Yeri kendisi bulur: iki kayıttaki konuşmanın ritmini karşılaştırır, sonra örnek hassasiyetinde hizalar. Uzun kayıtlarda iki cihazın saat farkından doğan kaymayı da ölçüp giderir.
-
-- Her sesin düzeyi videonun sesine eşitlenir ve videonun o bölümdeki sesinin yerine konur.
-- Videoda geçmeyen bir ses verilirse yerleştirilmez; hangi sesin neden reddedildiği raporda yazar.
-- Bütün ses YouTube düzeyine (-14 LUFS) getirilir. İstenirse konuşmacı düzeyleri dengelenir ve dip gürültüsü azaltılır.
-
-Görüntü yeniden kodlanmaz; sonuç `<video>_sesli.mp4` olarak yazılır. Sonraki adımları bu yeni videoyla yap.
+- **Python 3.10** or newer
+- **ffmpeg** (`ffmpeg` and `ffprobe` on your PATH)
+- **numpy** and **Pillow**
+- **faster-whisper** (for Transcribe and automatic subtitles)
 
 ```bash
-python ses.py "video.mp4" --ses "yaka_mikrofonu.wav"
+pip install -r requirements.txt
 ```
 
-## 02 İlk Analiz
+An easy way to get ffmpeg on Windows:
 
-Konuşmayı kelime kelime zamanlarıyla yazıya döker ve videonun yanına `<video>.davar.json` olarak kaydeder. Diğer iş akışları bu kaydı okur; aynı video yeniden yazıya dökülmez. İstenirse YouTube Studio'ya yüklenebilen altyazı (`.srt`) ve zaman damgalı metin (`.txt`) de yazar.
+```bash
+winget install Gyan.FFmpeg
+```
 
-Yazıya dökme bilgisayarında, Whisper modeliyle yapılır; internete bir şey gönderilmez (model ilk kullanımda bir kez indirilir). Özel adlarda ve sayılarda hata yapar; yayınlamadan önce denetle.
+## Usage
 
-### Metni düzeltme ve kişisel sözlük
+### With the window
 
-Yazıya dökme özel adları sık sık yanlış yazar. **Metni düzelt** penceresinde metin satır satır gelir; satırı dinleyip düzeltir, Enter ile sonrakine geçersin. Kaydedince altyazı ve metin dosyaları da yenilenir.
+Double-click `Davar.bat`. Choose the video (and an output folder if you like) at the top, pick a workflow on the left, tick the settings and press **Start**. Progress and results appear in the log at the bottom. Dropping a video onto `Davar.bat` opens the window with that video selected.
 
-Tek kelimelik düzeltmeleri Davar **kişisel sözlüğe** eklemeyi önerir. Sözlük, kullanıcı klasöründeki `.davar/sozluk.txt` dosyasıdır; her satırı `yanlış = doğru` biçimindedir:
+Outside Windows:
+
+```bash
+python davar_gui.pyw
+```
+
+### From the command line
+
+Every workflow is also a script:
+
+```bash
+python audio.py "video.mp4" --audio "lavalier.wav"
+```
+
+```bash
+python transcript.py "video.mp4" --srt --text
+```
+
+```bash
+python roughcut.py "video.mp4" --fillers "you know, like" --review
+```
+
+```bash
+python titles.py "Jane Doe" "Journalist" --video "video.mp4"
+```
+
+```bash
+python clips.py "video.mp4" 13:06 13:56 --headline "TRAFFIC IN TUZLA" --subtitles --cover
+```
+
+Run any of them with `--help` for all options.
+
+### Importing into Resolve
+
+1. Open a project in Resolve.
+2. **File → Import → Timeline…** and choose the `<video>_cut.fcpxml` written next to the video.
+3. Press **OK** in the dialog. The trimmed timeline opens on the Edit page.
+
+## 01 Audio
+
+Puts separately recorded audio (a lavalier microphone, an audio recorder, parts recorded afterwards) in its place in the video. It finds the place by itself: it compares the rhythm of the speech in both recordings, then aligns to sample accuracy. On long recordings it also measures and removes the drift caused by the two devices' clocks.
+
+- Each recording's level is matched to the video's own audio, and it replaces the video's audio there.
+- Audio that does not occur in the video is not placed; the report says which file was rejected.
+- The whole track is brought to YouTube loudness (-14 LUFS). Optionally the speakers' levels are balanced and background noise is reduced.
+
+The picture is not re-encoded; the result is written as `<video>_audio.mp4`. Do the next steps with that new video.
+
+## 02 Transcribe
+
+Transcribes the speech word by word with timing and saves it next to the video as `<video>.davar.json`. The other workflows read that file; the same video is never transcribed twice. It can also write subtitles you can upload to YouTube Studio (`.srt`) and a time-stamped text file (`_transcript.txt`).
+
+Transcription runs on your computer with the Whisper model; nothing is sent to the internet (the model is downloaded once on first use). It gets names and numbers wrong; check before publishing.
+
+### Editing the text and the personal dictionary
+
+The **Edit the text** window shows the transcript line by line: listen to a line, correct it, press Enter for the next. Saving also rewrites the subtitle and text files.
+
+Davar offers to add single-word corrections to your **personal dictionary**, the file `.davar/dictionary.txt` in your home folder. Each line reads `wrong = right`:
 
 ```
 tuzda = Tuzla
@@ -54,152 +121,66 @@ Akbörse = Akköse
 top sen = TÜPSAN
 ```
 
-Sözlük her okunuşta uygulanır: bir kez öğrettiğin kelime sonraki videolarda da, daha önce analiz ettiklerinde de kendiliğinden düzelir. Kesme işaretinden sonraki ekler korunur (`Akbörse'nin` → `Akköse'nin`).
+The dictionary is applied every time a transcript is read: a word taught once is fixed in later videos and in the ones transcribed before. A suffix after an apostrophe is kept (`Akbörse'nin` → `Akköse'nin`).
 
-## 03 Kaba Kurgu
+## 03 Rough Cut
 
-| Ne bulur | Nasıl |
+| What it finds | How |
 |---|---|
-| Sessizlikler | Ses seviyesinden. Eşiği kayıttaki arka plan gürültüsüne göre kendisi seçer. Doğrudan kesilir. |
-| "Iıı / eee" duraksamaları | Sesin kendisinden (düz perde, sabit ses). İlk Analiz varsa metinle karşılaştırılır. |
-| Dolgu kelimeleri | Senin verdiğin listeden ("yani, şey, işte"), İlk Analiz'in metninde aranır. |
+| Silences | From the audio level. The threshold is chosen from the recording's own background noise. Cut directly. |
+| "Uh / um" hesitations | From the audio itself (flat pitch, steady sound). Checked against the transcript when there is one. |
+| Filler words | From your list ("you know, like"), searched in the transcript. |
 
-Duraksamalar ve dolgu kelimeleri **aday** olarak bir listede gelir: zaman, tür, güven derecesi ve çevresindeki cümle. Her adayı ve kesilmiş halini dinleyebilir, işaretini değiştirebilirsin. Emin olunanlar işaretli, şüpheliler işaretsiz gelir; dolgu kelimeleri her zaman işaretsiz gelir, çünkü hangisinin gereksiz olduğuna sen karar verirsin.
+Hesitations and filler words arrive as **candidates** in a list with time, kind, confidence and the surrounding sentence. You can listen to each candidate, hear how it sounds with the cut, and change its tick. Confident ones arrive ticked, doubtful ones unticked; filler words always arrive unticked, because only you can tell which ones are superfluous.
 
-## Kurulum
+### How silences and hesitations are found
 
-Gerekenler:
+**Silence.** The audio is split into 10 millisecond slices and each slice's level is measured. The threshold is placed between the background noise and the speech level. Stretches that stay below it long enough are cut, leaving a little padding around words.
 
-- **Python 3.10** ya da daha yenisi
-- **ffmpeg** (`ffmpeg` ve `ffprobe` komutları PATH'te olmalı)
-- **numpy** ve **Pillow**
-- **faster-whisper** (İlk Analiz ve otomatik altyazı için)
+**Hesitation.** An "uh" differs from speech in three ways: it is voiced, its pitch stays flat and the mouth shape does not change. In normal speech those three never hold together for 0.3 seconds. Davar looks for stretches that fit this pattern and sorts them:
 
-```bash
-pip install -r requirements.txt
-```
+- standing alone, with silence on both sides,
+- following a silence and running straight into a word ("uh so…"),
+- glued to the *end* of a word. These are usually part of a real word, so they are shown but not cut by default.
 
-Windows'ta ffmpeg kurmanın kolay yolu:
+No AI model or internet connection is needed for this; it is computed from the audio. That is why Rough Cut also works on videos that have not been transcribed.
 
-```bash
-winget install Gyan.FFmpeg
-```
+## 06 Titles
 
-## Kullanım
+Makes a lower third for a speaker's name and title: an accent stripe on the left, the name on top, the title below. It opens from the left in half a second and fades out at the end. The output is a video with a transparent background (ProRes 4444, `lowerthird_<name>.mov`); in Resolve you drag it onto the track above the video and need no further effect.
 
-### Pencereyle
+The size and frame rate come from the selected video; the duration, place (left, centre, right) and accent colour can be set.
 
-`Davar.bat` dosyasına çift tıkla. Üstten videoyu (istersen çıktı klasörünü) seç, soldan iş akışını seç, ayarları işaretle, **Başlat**'a bas. İlerleme ve sonuçlar alttaki kayıt bölümünde görünür. Bir videoyu `Davar.bat`'ın üstüne sürükleyip bırakırsan pencere o video seçili açılır.
+## 08 Social Clips
 
-Windows dışında:
+Cuts the time range you give from a landscape video into a 1080x1920 vertical video: the speaker's frame over a blurred background, a short kicker and up to two headline lines on top. Optionally it adds subtitles and a 2.5 second intro cover. Loudness is brought to the social media level (-14 LUFS).
 
-```bash
-python davar_arayuz.pyw
-```
+Subtitles use the transcript when there is one; otherwise the chosen range is transcribed on the spot. They are burned in and cannot be corrected afterwards, so fix the transcript first.
 
-### Komut satırından
+## Limits
 
-```bash
-python analiz.py "video.mp4" --srt --metin
-```
+- Only clear hesitations of at least 0.3 seconds are cut by default. Shorter ones are offered as suggestions when the transcript also heard them.
+- Filler-word timing comes from the transcript and is approximate; use "Listen with the cut" before cutting them.
+- On recordings with a noisy background (street, wind, music) silence detection gets weaker. Davar warns when that happens.
+- On recordings with a variable frame rate (some phone and screen recordings) cut points may drift in Resolve. Davar warns when that happens.
+- Cuts are automatic; watching them before you publish is your job.
 
-```bash
-python davar.py "video.mp4" --dolgu "yani, şey" --kontrol
-```
+## Development
 
-Komut satırında onay listesi yoktur: emin olunan duraksamalar ve `--dolgu` ile verilen kelimelerin hepsi kesilir.
-
-Seçenekler:
-
-| Seçenek | Varsayılan | Anlamı |
-|---|---|---|
-| `--min-sessizlik` | 0.5 | Bundan kısa sessizliklere dokunulmaz (saniye) |
-| `--pay-bas` | 0.10 | Kelime başlamadan önce bırakılan pay |
-| `--pay-son` | 0.15 | Kelime bittikten sonra bırakılan pay |
-| `--esik` | otomatik | Sessizlik eşiği (dB) |
-| `--sessizlik-yok` | | Yalnızca duraksamaları kes |
-| `--iii-yok` | | Yalnızca sessizlikleri kes |
-| `--iii-min` | 0.30 | Bundan kısa duraksamalara dokunulmaz |
-| `--iii-sondakiler` | | Kelime sonuna yapışık uzatmaları da kes (yanlış kesim riski yüksek) |
-| `--dolgu` | | Kesilecek dolgu kelimeleri, virgülle ayrılmış (İlk Analiz gerektirir) |
-| `--kontrol` | | Kontrol çizelgesini de yaz |
-| `--cikti` | videonun yanı | Çıktı dosyasının yolu |
-
-### Resolve'a aktarma
-
-1. Resolve'da bir proje aç.
-2. **File → Import → Timeline…** ile videonun yanında oluşan `<video>_kesik.fcpxml` dosyasını seç.
-3. Çıkan pencerede **OK** de. Edit sayfasında kesilmiş zaman çizelgesi açılır.
-
-Kontrol çizelgesi (`<video>_iii_kontrol.fcpxml`) aynı yolla içeri alınır.
-
-## 06 Yazılar
-
-Konuşmacı adı ve unvanı için KJ (alt bant) üretir: solda vurgu şeridi, üstte ad, altta unvan. Yarım saniyede soldan açılır, sonunda solarak çıkar. Çıktı saydam zeminli bir videodur (ProRes 4444, `kj_<ad>.mov`); Resolve'da videonun üstündeki şeride sürüklersin, ayrıca efekt gerekmez.
-
-Boyut ve kare hızı seçili videodan alınır; süre, yer (sol, orta, sağ) ve vurgu rengi ayarlanabilir.
-
-```bash
-python yazilar.py "Halil Özen" "Gazeteci" --video "bolum.mp4" --renk "#E30613"
-```
-
-## 08 Sosyal Klipler
-
-Yatay bir videodan verdiğin zaman aralığını 1080x1920 dikey video olarak keser: bulanık arka plan üstünde konuşmacı kadrajı, üstte kısa bir yazı ve iki satıra kadar başlık. İsteğe bağlı olarak konuşmadan otomatik altyazı ve 2,5 saniyelik bir giriş kapağı ekler. Ses yüksekliği sosyal medya düzeyine (-14 LUFS) getirilir.
-
-```bash
-python reels.py "video.mp4" 13:06 13:56 --ust-yazi "1. BÖLÜM" --baslik "TUZLA'DA TRAFİK" --baslik "NEDEN KİLİTLENİYOR?" --altyazi --kapak
-```
-
-| Seçenek | Anlamı |
-|---|---|
-| `--ust-yazi` | Başlığın üstündeki kısa yazı |
-| `--baslik` | Başlık satırı (iki satır için iki kez yaz) |
-| `--yatay` | Kadrajın yatay yeri: 0 sol, 0.5 orta, 1 sağ |
-| `--altyazi` | Konuşmadan otomatik altyazı ekle |
-| `--kapak` | Başa giriş kapağı ekle |
-| `--dil` | Konuşma dili (varsayılan `tr`) |
-| `--cikti` | Çıktı dosyası (varsayılan: videonun yanına `<video>_reels.mp4`) |
-
-Altyazı için İlk Analiz'in metni kullanılır; analiz yoksa seçilen aralık o an yazıya dökülür. Özel adlarda ve sayılarda hata yapabilir, şimdilik düzeltme imkânı yok: yayınlamadan önce oku.
-
-## Sessizlik ve duraksama nasıl bulunuyor
-
-**Sessizlik.** Ses 10 milisaniyelik dilimlere bölünür ve her dilimin seviyesi ölçülür. Eşik, kayıttaki arka plan gürültüsü ile konuşma seviyesinin arasına otomatik yerleştirilir. Eşiğin altında yeterince uzun kalan aralıklar, kelimelerin iki yanında küçük bir pay bırakılarak kesilir.
-
-**Duraksama.** "Iıı" sesi konuşmadan üç özelliğiyle ayrılır: ses kesintisizdir (ötümlü), perdesi düz kalır ve ağız şekli değişmez. Normal konuşmada bu üçü aynı anda 0,3 saniye sabit kalmaz. Davar bu kalıba uyan yerleri arar ve iki türünü keser:
-
-- iki yanı sessiz, tek başına duran duraksamalar,
-- sessizlikten sonra gelip doğrudan kelimeye bağlanan duraksamalar ("ııı şimdi…").
-
-Kelimenin *sonuna* yapışık uzatmalar çoğu zaman gerçek kelimenin parçası olduğu için varsayılan olarak kesilmez.
-
-Sessizlik ve duraksama bulmak için yapay zekâ modeli ya da internet bağlantısı gerekmez; sesin kendisinden hesaplanır. Bu yüzden İlk Analiz yapılmamış videolarda da çalışır.
-
-## Sınırlar
-
-- Yalnızca en az 0,3 saniye süren, net duraksamalar yakalanır. Çok kısa ya da kısık söylenenler kalır.
-- Dolgu kelimelerinin zamanı yazıya dökmeden gelir ve yaklaşıktır; kesmeden önce "kesilmiş halini dinle" ile denetle.
-- Arka planı gürültülü kayıtlarda (sokak, rüzgâr, müzik) sessizlik ayrımı zayıflar. Program bu durumda uyarır.
-- Kare hızı değişken kayıtlarda (bazı telefon ve ekran kayıtları) Resolve'da kesim yerleri kayabilir. Program bu durumda uyarır.
-- Kesimler otomatiktir; yayınlamadan önce izlemek senin işin.
-
-## Testler
-
-Hesap kısmı (sessizlik ve duraksama bulma, aday seçimi, altyazı, ses eşleme, sözlük, metin düzeltme, KJ çizimi) yapay verilerle sınanır; ffmpeg ya da video gerekmez.
+The computational parts (silence and hesitation detection, candidate selection, subtitles, audio matching, dictionary, transcript editing, lower-third drawing) and the completeness of the translations are tested with synthetic data; neither ffmpeg nor a video is needed.
 
 ```bash
 python -m unittest discover tests
 ```
 
-## Yeni iş akışı eklemek
+**Adding a workflow.** In `davar_gui.pyw` write a class derived from `Page` and add it to the `PAGES` list; the video and output folder pickers, the Start button, the progress bar and the log come for free. Planned workflows live in the same file as stubs derived from `Planned`.
 
-`davar_arayuz.pyw` içinde `Sayfa` sınıfından türeyen bir sınıf yazıp `SAYFALAR` listesine eklemek yeterli; video ve çıktı klasörü seçimi, Başlat düğmesi, ilerleme çubuğu ve kayıt bölümü hazır gelir. Planlanan iş akışları aynı dosyada `Yakinda` sınıfından türeyen taslaklar olarak duruyor.
+**Adding a language.** Source strings are English. Create `lang_<code>.py` with a `TRANSLATIONS` dict (see `lang_tr.py`) and add the language to `LANGUAGES` in `i18n.py`. A test fails if a string used in the code has no Turkish translation.
 
-## Katkı
+## Contributing
 
-Hata bildirimi ve öneriler için konu (issue) açabilirsin. Farklı konuşmacılar ve kayıt koşullarıyla denemeler özellikle değerli.
+Bug reports and suggestions are welcome as issues. Trials with different speakers, languages and recording conditions are especially valuable.
 
-## Lisans
+## License
 
 [MIT](LICENSE)

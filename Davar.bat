@@ -1,3 +1,3 @@
 @echo off
-rem Davar arayuzunu acar. Bir videoyu bu dosyanin ustune surukleyip birakabilirsin.
-start "" pythonw "%~dp0davar_arayuz.pyw" %*
+rem Opens the Davar interface. You can also drop a video onto this file.
+start "" pythonw "%~dp0davar_gui.pyw" %*
