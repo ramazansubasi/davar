@@ -81,12 +81,41 @@ def voice_features(samples):
     return db, shape, pitch, voiced
 
 
+def _follow_tail(db, shape, voiced, mean, level, end, threshold):
+    """Follow a hesitation past its steady core to where the sound really stops.
+
+    An "uh" rarely ends abruptly: it fades for another 0.1-0.3 seconds, and while it
+    fades its spectrum drifts, so the steady core ends early. Cutting only the core
+    leaves an audible stub. From the end of the core this walks on while the sound
+    keeps fading, and stops where something new begins: the level turns up again, an
+    audible consonant starts, or a clearly different sound sets in.
+    """
+    limit = min(len(db), end + int(0.6 / WINDOW))
+    lowest, valley = level, end
+    j = end
+    while j < limit:
+        if db[j] <= threshold:  # faded into silence
+            return j
+        if db[j] > level + 3 or db[j] > lowest + 4.5:  # louder again: the next word; go back to the dip
+            return valley
+        if voiced[j] < 0.35 and db[j] > threshold + 6:  # audible but unvoiced: a consonant
+            return j
+        if db[j] > level - 10 and math.sqrt(float(np.mean((shape[j] - mean) ** 2))) > 2 * SHAPE_LIMIT:
+            return j  # still loud and clearly a different sound
+        if db[j] < lowest:
+            lowest, valley = db[j], j + 1
+        j += 1
+    return valley if j >= limit else j
+
+
 def find_hesitations(features, threshold, min_duration):
     """Return sustained "uh / um" sounds as (start, end, kind) in seconds.
 
     Kind: "alone" = silence on both sides, "before_word" = follows a silence and
     runs into a word, "word_end" = glued to the end of a word (usually a real word
-    being stretched; shown as a candidate but not cut by default).
+    being stretched; shown as a candidate but not cut by default), "between_words" =
+    speech on both sides with no pause (a long vowel inside a word looks the same, so
+    these only become candidates where the transcript heard an "uh / um").
     """
     db, shape, pitch, voiced = features
     n = len(db)
@@ -120,6 +149,7 @@ def find_hesitations(features, threshold, min_duration):
         if end - i < min_frames:
             i += 1
             continue
+        end = _follow_tail(db, shape, voiced, mean, float(np.median(db[i:end])), end, threshold)
         # what surrounds this stretch of sound: glued to a word, or standing alone?
         island_start, island_end = i, end
         while island_start > 0 and db[island_start - 1] > threshold:
@@ -134,7 +164,53 @@ def find_hesitations(features, threshold, min_duration):
             found.append((island_start * WINDOW + shift, end * WINDOW + shift, "before_word"))
         elif after <= 0.12:
             found.append((i * WINDOW + shift, island_end * WINDOW + shift, "word_end"))
+        else:
+            found.append((i * WINDOW + shift, end * WINDOW + shift, "between_words"))
         i = end
+    return found
+
+
+# --- coughs and other non-speech sounds ---------------------------------------
+NOISE_GAP = 0.12  # a non-speech sound must have at least this much silence on both sides
+NOISE_MAX = 1.2  # longer stretches are speech, not a cough
+
+
+def find_noises(features, threshold):
+    """Return short sounds standing alone between silences as (start, end, voiced share, faint).
+
+    `faint` marks a brief sound barely louder than the silence around it: a click, a lip
+    smack, a breath.
+
+    A cough, a throat being cleared, a loud breath or a click is a burst of sound with
+    silence on both sides. So is a short word such as "yes", which is why the caller
+    decides with the transcript: a burst no word was transcribed for is not speech.
+    Without a transcript only the noisy ones, with little voicing, can be told apart.
+    """
+    db, _shape, _pitch, voiced = features
+    n = len(db)
+    loud = db > threshold
+    # gaps shorter than 30 ms do not split a sound
+    changes = np.flatnonzero(np.diff(loud.astype(np.int8)))
+    bounds = np.concatenate(([0], changes + 1, [n]))
+    for a, b in zip(bounds[:-1], bounds[1:]):
+        if not loud[a] and b - a <= 3 and a > 0 and b < n:
+            loud[a:b] = True
+    changes = np.flatnonzero(np.diff(loud.astype(np.int8)))
+    bounds = np.concatenate(([0], changes + 1, [n]))
+    islands = [(a, b) for a, b in zip(bounds[:-1], bounds[1:]) if loud[a]]
+    gap = int(NOISE_GAP / WINDOW)
+    shift = FEATURE_WINDOW / 2 / SAMPLE_RATE - WINDOW / 2
+    found = []
+    for k, (a, b) in enumerate(islands):
+        if not 0.06 <= (b - a) * WINDOW <= NOISE_MAX:
+            continue
+        before = a - islands[k - 1][1] if k else gap
+        after = islands[k + 1][0] - b if k + 1 < len(islands) else gap
+        if before < gap or after < gap:
+            continue
+        share = float(np.mean(voiced[a:b] > VOICED_LIMIT))
+        faint = bool(db[a:b].max() < threshold + 10 and (b - a) * WINDOW < 0.25)
+        found.append((a * WINDOW + shift, b * WINDOW + shift, share, faint))
     return found
 
 
@@ -260,8 +336,10 @@ FILLER_HINTS = {"tr": "ııı eee ıı ee hmm", "en": "uh um er hmm"}
 
 def kind_name(candidate):
     names = {"alone": _("uh / um (alone)"), "before_word": _("uh / um (before a word)"),
-             "word_end": _("stretch (end of a word)"), "word": _("filler word"),
-             "text_only": _("uh / um (transcript only)")}
+             "word_end": _("stretch (end of a word)"), "between_words": _("uh / um (between words)"),
+             "word": _("filler word"), "text_only": _("uh / um (transcript only)"),
+             "noise": _("non-speech sound (cough, breath)"),
+             "unknown": _("sound with no word (listen)")}
     return (_("short") + " " if candidate.get("short") else "") + names[candidate["kind"]]
 
 
@@ -281,7 +359,7 @@ def is_filler_sound(word, language="tr"):
 
 
 def build_candidates(hesitations, db, words=None, filler_words=(), include_word_ends=False,
-                     short_hesitations=(), language="tr"):
+                     short_hesitations=(), language="tr", noises=()):
     """List the hesitations and filler words that may be cut, each with a confidence level.
 
     `words` is the transcript's list of (text, start, end). When given, hesitations
@@ -314,8 +392,13 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
                            "selected": selected, "context": text, "parts": parts, **extra})
 
     candidates = []
+    explained = set()  # transcribed "uh / um" sounds that already belong to a candidate
     for start, end, kind in hesitations:
         i = heard_near(start, end)
+        if kind == "between_words":
+            continue  # too easily a long vowel inside a word; handled below through the transcript
+        if i is not None:
+            explained.add(i)
         if kind == "alone":
             confidence = "high"
         elif kind == "before_word":
@@ -338,17 +421,22 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
 
     # Hesitations the transcript heard but that were too short to be caught above.
     # Their timing comes from the steady sound at that spot, not from the transcript.
+    between = [h for h in hesitations if h[2] == "between_words"]
     for i in heard:
-        b, e = words[i][1], words[i][2]
-        if overlaps(b, e, 0.5):
+        if i in explained:
             continue
-        near = [h for h in short_hesitations if h[0] < e + 0.35 and h[1] > b - 0.35
+        b, e = words[i][1], words[i][2]
+        near = [h for h in list(short_hesitations) + between if h[0] < e + 0.35 and h[1] > b - 0.35
                 and not overlaps(h[0], h[1])]
         if near:
-            start, end, kind = max(near, key=lambda h: h[1] - h[0])
-            # a short cut leaves little room for error, so it arrives as a suggestion, unticked
-            add(start, end, kind, "low" if kind == "word_end" else "medium", False, i, i + 1, short=True)
-        elif e - b >= SHORT_HESITATION:
+            # prefer a sound that begins after a pause; among equals take the longest
+            start, end, kind = max(near, key=lambda h: (h[2] in ("alone", "before_word"), h[1] - h[0]))
+            # Heard by the transcript and found in the audio: after a pause it is cut by default.
+            # Glued to a word, or between two words with no pause, it is only a suggestion.
+            clear = kind in ("alone", "before_word")
+            add(start, end, kind, "medium" if clear or kind == "between_words" else "low", clear, i, i + 1,
+                short=end - start < 0.30)
+        elif e - b >= SHORT_HESITATION and not overlaps(b, e, 0.2):
             start, end = snap(b), snap(e)
             if end - start >= SHORT_HESITATION and not overlaps(start, end):
                 add(start, end, "text_only", "low", False, i, i + 1)
@@ -364,13 +452,35 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
             if end - start < 0.08 or overlaps(start, end):
                 continue
             add(start, end, "word", "medium", False, i, i + len(wanted))
+    # Coughs, throat clearing, loud breaths: bursts of sound for which no word was transcribed.
+    for start, end, voiced_share, faint in noises:
+        if overlaps(start, end):
+            continue  # already listed as a hesitation
+        noisy = voiced_share < 0.5  # a cough or a breath is noise; a voice is mostly voiced
+        if words:
+            spoken = [w for w in words if not is_filler_sound(w[0], language)
+                      and w[1] < end + 0.05 and w[2] > start - 0.05]
+            middle_inside = any(start - 0.05 <= (w[1] + w[2]) / 2 <= end + 0.05 for w in spoken)
+            covered = sum(min(w[2], end) - max(w[1], start) for w in spoken) / (end - start)
+            if middle_inside or covered > 0.5:
+                continue  # a word was said here
+            if noisy or faint:
+                add(start, end, "noise", "high" if not spoken else "medium", True)
+            else:
+                # A clear voice the transcript has no word for: a throat being cleared, a murmur
+                # of agreement, or a word the speech model missed. Only a listener can tell.
+                add(start, end, "unknown", "low", False)
+        elif voiced_share < 0.35:
+            # noisy and isolated, but without a transcript it could still be a short word
+            add(start, end, "noise", "medium", True)
     candidates.sort(key=lambda c: c["start"])
     return candidates
 
 
 def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0.10, pad_after=0.15,
             threshold=None, min_hesitation=0.30, include_word_ends=False, words=None,
-            filler_words=(), language="tr", keep_from=None, keep_to=None, remove=(), progress=None):
+            filler_words=(), language="tr", keep_from=None, keep_to=None, remove=(), noises=True,
+            progress=None):
     """Analyse the video and return a state holding the silence threshold and the cut candidates.
 
     Writes nothing. The result goes to `apply`; in between, the "selected" flags of
@@ -378,6 +488,7 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
 
     `keep_from` / `keep_to` trim everything before / after those seconds, and `remove`
     is a list of (start, end) ranges to drop from the middle, such as a repeated take.
+    `noises` also looks for coughs and other non-speech sounds.
     """
     def step(percent, text):
         if progress:
@@ -387,7 +498,7 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
     if not video.is_file():
         raise DavarError(_("file not found: {path}").format(path=video))
     trimming = keep_from is not None or keep_to is not None or bool(remove)
-    if not silence and not hesitations and not filler_words and not trimming:
+    if not silence and not hesitations and not filler_words and not trimming and not noises:
         raise DavarError(_("nothing was selected to cut."))
     if keep_from is not None and keep_to is not None and keep_to <= keep_from:
         raise DavarError(_("the end of the programme must come after its start."))
@@ -401,16 +512,20 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
     auto, floor, speech = auto_threshold(db)
     used = threshold if threshold is not None else auto
 
-    found, short = [], []
-    if hesitations:
-        step(40, _("Looking for hesitations (uh / um)"))
+    found, short, bursts = [], [], []
+    if hesitations or noises:
+        step(40, _("Looking for hesitations (uh / um)") if hesitations else _("Looking for non-speech sounds"))
         features = voice_features(samples)
-        found = find_hesitations(features, used, min_hesitation)
-        if words and min_hesitation > SHORT_HESITATION:
-            step(70, _("Matching short hesitations with the transcript"))
-            short = find_hesitations(features, used, SHORT_HESITATION)
+        if hesitations:
+            found = find_hesitations(features, used, min_hesitation)
+            if words and min_hesitation > SHORT_HESITATION:
+                step(70, _("Matching short hesitations with the transcript"))
+                short = find_hesitations(features, used, SHORT_HESITATION)
+        if noises:
+            step(85, _("Looking for non-speech sounds"))
+            bursts = find_noises(features, used)
     step(90, _("Preparing candidates"))
-    candidates = build_candidates(found, db, words, filler_words, include_word_ends, short, language)
+    candidates = build_candidates(found, db, words, filler_words, include_word_ends, short, language, bursts)
     step(100, _("Analysis finished"))
     return {
         "video": video, "info": info, "fps": float(info["fps"]), "db": db, "samples": samples,
@@ -540,6 +655,8 @@ def main():
                    help="silence threshold in dB; chosen automatically when omitted")
     p.add_argument("--no-silence", action="store_true", help="leave silences alone, cut hesitations only")
     p.add_argument("--no-hesitations", action="store_true", help="leave hesitations alone, cut silences only")
+    p.add_argument("--no-noises", action="store_true",
+                   help="leave coughs and other non-speech sounds alone")
     p.add_argument("--min-hesitation", type=float, default=0.30,
                    help="hesitations shorter than this are left alone (seconds, default 0.30)")
     p.add_argument("--word-ends", action="store_true",
@@ -566,7 +683,7 @@ def main():
             min_silence=a.min_silence, pad_before=a.pad_before, pad_after=a.pad_after,
             threshold=a.threshold, min_hesitation=a.min_hesitation, include_word_ends=a.word_ends,
             words=saved["words"] if saved else None, filler_words=fillers,
-            language=saved["language"] if saved else "tr",
+            language=saved["language"] if saved else "tr", noises=not a.no_noises,
             keep_from=parse_time(a.keep_from) if a.keep_from else None,
             keep_to=parse_time(a.keep_to) if a.keep_to else None, remove=parse_ranges(a.remove))
         for c in state["candidates"]:  # nobody to ask on the command line: requested words are cut

@@ -385,6 +385,7 @@ class RoughCutPage(Page):
     def build(self, parent):
         self.silence = tk.BooleanVar(value=True)
         self.hesitations = tk.BooleanVar(value=True)
+        self.noises = tk.BooleanVar(value=True)
         self.review_file = tk.BooleanVar(value=False)
         self.ask = tk.BooleanVar(value=True)
         self.min_silence = tk.DoubleVar(value=0.5)
@@ -429,6 +430,11 @@ class RoughCutPage(Page):
                       _("Finds drawn-out thinking sounds from the audio itself."))
         self.seconds_row(g, 0, _("Shortest hesitation"), self.min_hesitation, 0.2, 1.0,
                          _("Lower it to catch more; wrong candidates increase"))
+
+        self.card(parent, self.noises, _("Find coughs and other non-speech sounds"),
+                  _("Coughs, throat clearing, loud breaths and clicks standing between silences. With a "
+                    "transcript, a sound no word was written for is taken as non-speech; without one only "
+                    "the noisy ones can be told apart."))
 
         g = self.card(parent, None, _("Filler words"),
                       _("The speaker's verbal habits. Separate with commas: you know, like, I mean"))
@@ -481,7 +487,8 @@ class RoughCutPage(Page):
         self.excerpt_button.configure(state="normal" if saved else "disabled")
         if self._filler_list() and not saved:
             return _("Run Transcribe first to use filler words")
-        if not (self.silence.get() or self.hesitations.get() or self._filler_list() or self._trimming()):
+        if not (self.silence.get() or self.hesitations.get() or self.noises.get()
+                or self._filler_list() or self._trimming()):
             return _("Tick at least one thing to cut")
         return ""
 
@@ -493,6 +500,7 @@ class RoughCutPage(Page):
             review=self.review_file.get(), ask=self.ask.get(),
             analysis=dict(
                 video=video, silence=self.silence.get(), hesitations=self.hesitations.get(),
+                noises=self.noises.get(),
                 min_silence=float(self.min_silence.get()), pad_before=float(self.pad_before.get()),
                 pad_after=float(self.pad_after.get()), min_hesitation=float(self.min_hesitation.get()),
                 words=saved["words"] if saved else None, filler_words=self._filler_list(),
@@ -681,7 +689,7 @@ class ReviewWindow(tk.Toplevel):
     def _tick_medium(self):
         """Also tick the medium-confidence sound candidates that arrive unticked, such as short hesitations."""
         for c in self.candidates:
-            if c["confidence"] == "medium" and c["kind"] in ("alone", "before_word"):
+            if c["confidence"] == "medium" and c["kind"] in ("alone", "before_word", "noise"):
                 c["selected"] = True
         self._fill()
 

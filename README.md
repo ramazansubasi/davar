@@ -130,6 +130,7 @@ The dictionary is applied every time a transcript is read: a word taught once is
 | Silences | From the audio level. The threshold is chosen from the recording's own background noise. Cut directly. |
 | "Uh / um" hesitations | From the audio itself (flat pitch, steady sound). Checked against the transcript when there is one. |
 | Filler words | From your list ("you know, like"), searched in the transcript. |
+| Coughs and other non-speech sounds | Short bursts standing between silences. With a transcript, a burst no word was written for is non-speech. |
 
 **Trimming.** You can also give the time the programme starts and ends, and ranges to drop from the middle (a repeated take, an off-air exchange): everything outside is removed. The page can print the first and last lines of the transcript to help you pick the times.
 
@@ -144,6 +145,8 @@ Hesitations and filler words arrive as **candidates** in a list with time, kind,
 - standing alone, with silence on both sides,
 - following a silence and running straight into a word ("uh so…"),
 - glued to the *end* of a word. These are usually part of a real word, so they are shown but not cut by default.
+
+An "uh" rarely stops abruptly: it fades for another 0.1-0.3 seconds. The cut follows that fading tail to where the next sound begins, so no stub is left behind.
 
 No AI model or internet connection is needed for this; it is computed from the audio. That is why Rough Cut also works on videos that have not been transcribed.
 

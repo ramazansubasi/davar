@@ -131,6 +131,23 @@ class Hesitation(unittest.TestCase):
         self.assertAlmostEqual(found[0][0], 3.4, delta=0.08)
         self.assertAlmostEqual(found[0][1], 4.1, delta=0.08)
 
+    def test_fading_tail_is_cut_with_the_hesitation(self):
+        # the "uh" holds for half a second, then fades for a quarter second while its timbre drifts
+        open_sound = tone(0.75, 180, 700, np.random.default_rng(8))
+        closed_sound = tone(0.75, 180, 350, np.random.default_rng(8))  # same phases, darker timbre
+        n, tail = len(open_sound), int(0.25 * SAMPLE_RATE)
+        drift = np.concatenate((np.zeros(n - tail), np.linspace(0, 1, tail))).astype(np.float32)
+        fade = np.concatenate((np.ones(n - tail), 10 ** (np.linspace(0, -20, tail) / 20))).astype(np.float32)
+        sound = ((1 - drift) * open_sound + drift * closed_sound) * fade
+        rng = np.random.default_rng(9)
+        x = np.concatenate((speech(3, rng), quiet(0.4, rng), sound, speech(3, rng)))
+        core_only = roughcut.find_hesitations.__globals__["_follow_tail"]
+        self.assertTrue(callable(core_only))
+        found = self.find(x)
+        self.assertEqual(len(found), 1)
+        self.assertGreater(found[0][1], 3.9 + 0.15, "the cut must reach into the fading tail")
+        self.assertLess(found[0][1], 4.15 + 0.08, "but must stop before the next word")
+
     def test_hesitation_running_into_a_word(self):
         rng = np.random.default_rng(3)
         x = np.concatenate((speech(3, rng), quiet(0.4, rng), tone(0.6, 180, 700, rng), speech(3, rng)))
@@ -152,6 +169,43 @@ class Hesitation(unittest.TestCase):
         found = roughcut.find_hesitations((db, shape, pitch, voiced), -45, 0.30)
         self.assertEqual(len(found), 1)
         self.assertGreater(found[0][1] - found[0][0], 0.7)
+
+
+class Noises(unittest.TestCase):
+    def burst(self, seconds, rng):
+        """A cough-like sound: a burst of noise that dies away."""
+        n = int(seconds * SAMPLE_RATE)
+        return (rng.normal(0, 0.2, n) * np.exp(-np.linspace(0, 4, n))).astype(np.float32)
+
+    def test_cough_between_silences_is_found_and_speech_is_not(self):
+        rng = np.random.default_rng(11)
+        # 0-3 speech | silence | 3.5-3.8 cough | silence | 4.3-7.3 speech
+        x = np.concatenate((speech(3, rng), quiet(0.5, rng), self.burst(0.3, rng), quiet(0.5, rng), speech(3, rng)))
+        db = levels(x)
+        found = roughcut.find_noises(roughcut.voice_features(x), roughcut.auto_threshold(db)[0])
+        self.assertEqual(len(found), 1)
+        start, end, voiced_share, _faint = found[0]
+        self.assertAlmostEqual(start, 3.5, delta=0.06)
+        self.assertLess(end, 3.95)
+        self.assertLess(voiced_share, 0.35, "a cough is noise, not a voiced sound")
+
+    def test_transcript_decides_between_a_cough_and_a_short_word(self):
+        db = np.full(900, -20.0)
+        words = [["Evet", 1.0, 1.4], ["tamam.", 5.0, 5.5]]
+        bursts = [(1.02, 1.38, 0.9, False),  # the word "Evet": speech
+                  (3.0, 3.3, 0.1, False),    # noise with nothing transcribed: a cough
+                  (3.8, 3.9, 0.8, True),     # a faint click
+                  (4.2, 4.5, 0.9, False),    # a clear voice with no word: nobody can tell without listening
+                  (4.7, 4.98, 0.2, False)]   # noise just before a word, brushing its edge
+        found = roughcut.build_candidates([], db, words, noises=bursts)
+        self.assertEqual([(round(c["start"], 1), c["kind"], c["confidence"], c["selected"]) for c in found],
+                         [(3.0, "noise", "high", True), (3.8, "noise", "high", True),
+                          (4.2, "unknown", "low", False), (4.7, "noise", "medium", True)])
+
+    def test_without_a_transcript_only_noisy_sounds_are_candidates(self):
+        db = np.full(900, -20.0)
+        found = roughcut.build_candidates([], db, None, noises=[(1.0, 1.3, 0.9, False), (3.0, 3.3, 0.1, False)])
+        self.assertEqual([(round(c["start"], 1), c["confidence"]) for c in found], [(3.0, "medium")])
 
 
 class Candidates(unittest.TestCase):
@@ -204,10 +258,23 @@ class Candidates(unittest.TestCase):
         found = roughcut.build_candidates([], db, self.WORDS, short_hesitations=short)
         self.assertEqual(len(found), 1)
         self.assertTrue(found[0]["short"])
-        self.assertFalse(found[0]["selected"])
+        self.assertTrue(found[0]["selected"], "heard by the transcript and found after a pause: cut by default")
+
+    def test_sound_between_words_is_only_a_suggestion(self):
+        db = np.full(400, -20.0)
+        found = roughcut.build_candidates([(1.1, 1.5, "between_words"), (2.0, 2.4, "between_words")], db, self.WORDS)
+        self.assertEqual([(c["kind"], c["selected"]) for c in found], [("between_words", False)],
+                         "only the one the transcript heard becomes a candidate, and it arrives unticked")
+
+    def test_a_neighbouring_candidate_does_not_hide_another_hesitation(self):
+        words = [["ııı", 1.0, 1.9], ["evet", 2.0, 2.3], ["ııı", 2.4, 3.2], ["tamam", 3.3, 3.7]]
+        db = np.full(500, -20.0)
+        found = roughcut.build_candidates([(1.2, 1.7, "before_word")], db, words,
+                                          short_hesitations=[(2.6, 2.85, "before_word")])
+        self.assertEqual([round(c["start"], 1) for c in found], [1.2, 2.6])
 
     def test_names_are_available_for_every_kind(self):
-        for kind in ("alone", "before_word", "word_end", "word", "text_only"):
+        for kind in ("alone", "before_word", "word_end", "between_words", "word", "text_only", "noise", "unknown"):
             self.assertTrue(roughcut.kind_name({"kind": kind}))
             self.assertTrue(roughcut.kind_name({"kind": kind, "short": True}))
         for level in ("high", "medium", "low"):

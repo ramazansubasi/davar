@@ -28,6 +28,10 @@ TRANSLATIONS = {
     "uh / um (alone)": "ııı / eee (tek başına)",
     "uh / um (before a word)": "ııı / eee (kelime önünde)",
     "stretch (end of a word)": "uzatma (kelime sonunda)",
+    "uh / um (between words)": "ııı / eee (kelimeler arasında)",
+    "non-speech sound (cough, breath)": "konuşma dışı ses (öksürük, nefes)",
+    "sound with no word (listen)": "kelimesi olmayan ses (dinle)",
+    "Looking for non-speech sounds": "Konuşma dışı sesler aranıyor",
     "filler word": "dolgu kelimesi",
     "uh / um (transcript only)": "ııı / eee (yalnızca metinde)",
     "short": "kısa",
@@ -302,6 +306,13 @@ TRANSLATIONS = {
         "Uzatılmış düşünme seslerini sesin kendisinden bulur.",
     "Shortest hesitation": "En kısa duraksama",
     "Lower it to catch more; wrong candidates increase": "Düşürürsen daha çok yakalar, yanlış aday artar",
+    "Find coughs and other non-speech sounds": "Öksürük ve diğer konuşma dışı sesleri bul",
+    "Coughs, throat clearing, loud breaths and clicks standing between silences. With a "
+    "transcript, a sound no word was written for is taken as non-speech; without one only "
+    "the noisy ones can be told apart.":
+        "İki sessizlik arasında duran öksürük, boğaz temizleme, yüksek nefes ve tıkırtılar. İlk Analiz "
+        "varsa, karşılığında kelime yazılmamış ses konuşma dışı sayılır; yoksa yalnızca hışırtılı "
+        "olanlar ayırt edilebilir.",
     "Filler words": "Dolgu kelimeleri",
     "The speaker's verbal habits. Separate with commas: you know, like, I mean":
         "Konuşmacının ağız alışkanlıkları. Virgülle ayır: yani, şey, işte, aslında",

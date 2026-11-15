@@ -124,6 +124,7 @@ Sözlük her okunuşta uygulanır: bir kez öğrettiğin kelime sonraki videolar
 | Sessizlikler | Ses seviyesinden. Eşiği kayıttaki arka plan gürültüsüne göre kendisi seçer. Doğrudan kesilir. |
 | "Iıı / eee" duraksamaları | Sesin kendisinden (düz perde, sabit ses). İlk Analiz varsa metinle karşılaştırılır. |
 | Dolgu kelimeleri | Senin verdiğin listeden ("yani, şey, işte"), İlk Analiz'in metninde aranır. |
+| Öksürük ve diğer konuşma dışı sesler | İki sessizlik arasında duran kısa sesler. İlk Analiz varsa, karşılığında kelime yazılmamış ses konuşma dışı sayılır. |
 
 **Kırpma.** Programın başladığı ve bittiği zamanı, bir de aradan atılacak aralıkları (tekrar çekim, yayın dışı konuşma) verebilirsin: dışında kalan her şey atılır. Zamanları seçmene yardım etmek için sayfa, metnin ilk ve son satırlarını gösterebilir.
 
@@ -138,6 +139,8 @@ Duraksamalar ve dolgu kelimeleri **aday** olarak bir listede gelir: zaman, tür,
 - iki yanı sessiz, tek başına duranlar,
 - sessizlikten sonra gelip doğrudan kelimeye bağlananlar ("ııı şimdi…"),
 - kelimenin *sonuna* yapışık olanlar. Bunlar çoğu zaman gerçek kelimenin parçasıdır; gösterilir ama varsayılan olarak kesilmez.
+
+"Iıı" sesi çoğu zaman birden bitmez, 0,1-0,3 saniye daha kısılarak sürer. Kesim bu kuyruğu, sonraki sesin başladığı yere kadar izler; geride artık kalmaz.
 
 Bunun için yapay zekâ modeli ya da internet bağlantısı gerekmez; sesin kendisinden hesaplanır. Bu yüzden Kaba Kurgu, yazıya dökülmemiş videolarda da çalışır.
 
