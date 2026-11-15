@@ -178,6 +178,10 @@ class Candidates(unittest.TestCase):
         found = roughcut.build_candidates([(1.05, 1.55, "before_word"), (2.85, 3.25, "before_word")], db, self.WORDS)
         self.assertEqual([(c["confidence"], c["selected"]) for c in found], [("high", True), ("low", False)])
         self.assertIn("ııı", found[0]["context"])
+        # the transcribed "ııı" is marked as the thing being cut; the sentence around it is not
+        self.assertEqual([w for w, cut in found[0]["parts"] if cut], ["ııı"])
+        self.assertIn(("bu", False), found[0]["parts"])
+        self.assertEqual([w for w, cut in found[1]["parts"] if cut], [], "nothing heard there: nothing marked")
 
     def test_without_transcript_a_hesitation_before_a_word_is_medium(self):
         found = roughcut.build_candidates([(1.05, 1.55, "before_word"), (5.0, 5.4, "word_end")], np.full(700, -20.0))
@@ -190,6 +194,8 @@ class Candidates(unittest.TestCase):
         self.assertEqual([c["kind"] for c in found], ["word", "text_only", "word"])
         self.assertTrue(all(not c["selected"] for c in found))
         self.assertIn("«yani»", found[0]["context"])
+        self.assertEqual([w for w, cut in found[0]["parts"] if cut], ["yani"])
+        self.assertEqual([w for w, cut in found[1]["parts"] if cut], ["ııı"])
         self.assertAlmostEqual(found[2]["start"], 2.4, delta=0.11)
 
     def test_short_hesitation_needs_the_transcript_to_agree(self):

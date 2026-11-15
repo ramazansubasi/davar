@@ -288,34 +288,45 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
     found in the audio are checked against it and filler words are searched in it.
     `short_hesitations` are short sounds found with a loose measure: they become
     candidates only where the transcript also heard an "uh / um".
+
+    Every candidate carries its surrounding sentence twice: "context" as plain text and
+    "parts" as [(word, is this the thing being cut)], so an interface can highlight it.
     """
     words = words or []
     plains = [plain(w[0]) for w in words]
-    heard = [(w[1], w[2]) for w in words if is_filler_sound(w[0], language)]
+    heard = [i for i, w in enumerate(words) if is_filler_sound(w[0], language)]
 
-    def context(start, end, mark=None):
-        parts = []
-        for i, w in enumerate(words):
-            if w[2] > start - 1.2 and w[1] < end + 1.2:
-                parts.append(f"«{w[0]}»" if mark and mark[0] <= i < mark[1] else w[0])
-        return " ".join(parts)
+    def context(start, end, first=None, last=None):
+        """The words around a candidate; words first..last-1 are the candidate itself."""
+        parts = [(w[0], first is not None and first <= i < last)
+                 for i, w in enumerate(words) if w[2] > start - 1.2 and w[1] < end + 1.2]
+        return " ".join(f"«{text}»" if cut else text for text, cut in parts), parts
+
+    def heard_near(start, end, margin=0.5):
+        """Index of the transcribed "uh / um" closest to this stretch of audio, if any."""
+        middle = (start + end) / 2
+        near = [i for i in heard if words[i][1] < end + margin and words[i][2] > start - margin]
+        return min(near, key=lambda i: abs((words[i][1] + words[i][2]) / 2 - middle)) if near else None
+
+    def add(start, end, kind, confidence, selected, first=None, last=None, **extra):
+        text, parts = context(start, end, first, last)
+        candidates.append({"start": start, "end": end, "kind": kind, "confidence": confidence,
+                           "selected": selected, "context": text, "parts": parts, **extra})
 
     candidates = []
     for start, end, kind in hesitations:
-        in_text = any(b < end + 0.5 and e > start - 0.5 for b, e in heard)
+        i = heard_near(start, end)
         if kind == "alone":
             confidence = "high"
         elif kind == "before_word":
             # with a transcript we expect it to have heard the "uh" as well
-            confidence = ("high" if in_text else "low") if words else "medium"
+            confidence = ("high" if i is not None else "low") if words else "medium"
         else:
-            confidence = "medium" if in_text else "low"
-        candidates.append({
-            "start": start, "end": end, "kind": kind, "confidence": confidence,
-            "context": context(start, end),
-            "selected": (confidence == "high" or (kind == "before_word" and confidence == "medium")
-                         or (kind == "word_end" and include_word_ends)),
-        })
+            confidence = "medium" if i is not None else "low"
+        add(start, end, kind, confidence,
+            confidence == "high" or (kind == "before_word" and confidence == "medium")
+            or (kind == "word_end" and include_word_ends),
+            i, None if i is None else i + 1)
 
     def snap(t):  # word times are approximate: move to the quietest moment nearby
         mid = int(round(t / WINDOW))
@@ -327,7 +338,8 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
 
     # Hesitations the transcript heard but that were too short to be caught above.
     # Their timing comes from the steady sound at that spot, not from the transcript.
-    for b, e in heard:
+    for i in heard:
+        b, e = words[i][1], words[i][2]
         if overlaps(b, e, 0.5):
             continue
         near = [h for h in short_hesitations if h[0] < e + 0.35 and h[1] > b - 0.35
@@ -335,14 +347,11 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
         if near:
             start, end, kind = max(near, key=lambda h: h[1] - h[0])
             # a short cut leaves little room for error, so it arrives as a suggestion, unticked
-            candidates.append({"start": start, "end": end, "kind": kind, "short": True,
-                               "confidence": "low" if kind == "word_end" else "medium",
-                               "selected": False, "context": context(start, end)})
+            add(start, end, kind, "low" if kind == "word_end" else "medium", False, i, i + 1, short=True)
         elif e - b >= SHORT_HESITATION:
             start, end = snap(b), snap(e)
             if end - start >= SHORT_HESITATION and not overlaps(start, end):
-                candidates.append({"start": start, "end": end, "kind": "text_only", "confidence": "low",
-                                   "selected": False, "context": context(start, end)})
+                add(start, end, "text_only", "low", False, i, i + 1)
 
     for phrase in filler_words:
         wanted = [plain(x) for x in phrase.split() if plain(x)]
@@ -354,8 +363,7 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
             start, end = snap(words[i][1]), snap(words[i + len(wanted) - 1][2])
             if end - start < 0.08 or overlaps(start, end):
                 continue
-            candidates.append({"start": start, "end": end, "kind": "word", "confidence": "medium",
-                               "selected": False, "context": context(start, end, (i, i + len(wanted)))})
+            add(start, end, "word", "medium", False, i, i + len(wanted))
     candidates.sort(key=lambda c: c["start"])
     return candidates
 
@@ -506,7 +514,7 @@ def report(r, detailed=True):
         lines.append("\n" + _("Candidates (time in the original video; [x] = cut):"))
         for c in r["candidates"][:15]:
             lines.append(f"  [{'x' if c['selected'] else ' '}] {format_time(c['start'])}  "
-                         f"{c['end'] - c['start']:.2f} s  {kind_name(c)}, "
+                         f"{c['end'] - c['start']:.2f} {_('s')}  {kind_name(c)}, "
                          + _("confidence {level}").format(level=confidence_name(c["confidence"]))
                          + (f"  | {c['context']}" if c["context"] else ""))
         if len(r["candidates"]) > 15:

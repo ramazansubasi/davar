@@ -45,6 +45,8 @@ MUTED = "#8C97A8"
 RED = "#E30613"
 RED_DARK = "#B80510"
 ACCENT = "#FF7880"
+CUT = "#FF4B55"  # the sound or word that will be cut
+AMBER = "#F2B84B"  # low confidence
 SPEECH_LANGUAGES = ["tr", "en", "de", "fr", "es", "it", "pt", "nl", "ru", "ar"]
 
 
@@ -558,51 +560,71 @@ class ReviewWindow(tk.Toplevel):
 
         middle = ttk.Frame(self, style="Panel.TFrame", padding=(18, 4))
         middle.pack(fill="both", expand=True)
-        columns = (("cut", _("Cut"), 50, "center"), ("time", _("Time"), 90, "e"),
-                   ("length", _("Length"), 70, "e"), ("kind", _("Kind"), 230, "w"),
-                   ("confidence", _("Confidence"), 90, "w"), ("context", _("Context"), 480, "w"))
-        self.tree = ttk.Treeview(middle, columns=[c[0] for c in columns], show="headings", selectmode="browse")
-        for code, label, width, anchor in columns:
-            self.tree.heading(code, text=label, anchor=anchor)
-            self.tree.column(code, width=width, anchor=anchor, stretch=code == "context")
-        bar = ttk.Scrollbar(middle, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=bar.set)
-        self.tree.pack(side="left", fill="both", expand=True)
+        # A Text widget used as a table: a tree view cannot colour part of a cell, and the
+        # point of this list is to show the cut sound in red inside its white sentence.
+        tabs = ("34", "center", "150", "right", "228", "right", "250", "left", "490", "left", "580", "left")
+        header = tk.Text(middle, height=1, bg=CARD, fg=TEXT, bd=0, highlightthickness=0, tabs=tabs,
+                         font=("Segoe UI Semibold", 10), spacing1=7, spacing3=7, cursor="arrow", wrap="none")
+        header.insert("1.0", "\t" + "\t".join((_("Cut"), _("Time"), _("Length"), _("Kind"),
+                                               _("Confidence"), _("Context"))))
+        header.configure(state="disabled")
+        header.pack(fill="x")
+        self.table = tk.Text(middle, bg=FIELD, fg=TEXT, bd=0, highlightthickness=1,
+                             highlightbackground=BORDER, highlightcolor=BORDER, tabs=tabs,
+                             font=("Segoe UI", 10), spacing1=5, spacing3=5, cursor="arrow", wrap="none",
+                             insertwidth=0, takefocus=True)
+        bar = ttk.Scrollbar(middle, orient="vertical", command=self.table.yview)
+        self.table.configure(yscrollcommand=bar.set)
+        self.table.pack(side="left", fill="both", expand=True)
         bar.pack(side="right", fill="y", padx=(6, 0))
-        self.tree.tag_configure("doubtful", foreground=ACCENT)
-        self.tree.tag_configure("kept", foreground=MUTED)
-        self.tree.bind("<Button-1>", self._click)
-        self.tree.bind("<Double-1>", lambda _e: self._listen(False))
-        self.tree.bind("<space>", lambda _e: self._toggle())
-        self.tree.bind("<Return>", lambda _e: self._listen(False))
+        self.table.tag_configure("kept", foreground=MUTED)  # a row that will not be cut
+        self.table.tag_configure("cut", foreground=CUT, font=("Segoe UI Semibold", 10))
+        self.table.tag_configure("low", foreground=AMBER)
+        self.table.tag_configure("current", background="#2B3550")
+        self.table.tag_raise("cut")
+        self.table.bind("<Button-1>", self._click)
+        self.table.bind("<Double-1>", lambda _e: (self._listen(False), "break")[1])
+        self.table.bind("<B1-Motion>", lambda _e: "break")  # no text selection by dragging
+        self.table.bind("<space>", lambda _e: (self._toggle(), "break")[1])
+        self.table.bind("<Return>", lambda _e: (self._listen(False), "break")[1])
+        self.table.bind("<Up>", lambda _e: (self._move(-1), "break")[1])
+        self.table.bind("<Down>", lambda _e: (self._move(1), "break")[1])
 
+        self.rows = []  # candidate index shown on each line
+        self.current = None  # the selected candidate index
         self._fill()
         self.protocol("WM_DELETE_WINDOW", self._close)
         self.grab_set()
-        self.tree.focus_set()
+        self.table.focus_set()
         self.wait_window()
 
     # --- list -----------------------------------------------------------------
-    def _row(self, i):
+    def _write_row(self, line, i):
+        """Write candidate `i` on the given line: white sentence, the cut sound in red."""
         c = self.candidates[i]
-        return ("☑" if c["selected"] else "☐", format_time(c["start"]),
-                f"{c['end'] - c['start']:.2f} " + _("s"), roughcut.kind_name(c),
-                roughcut.confidence_name(c["confidence"]), c["context"])
-
-    def _tags(self, i):
-        c = self.candidates[i]
-        return ("doubtful",) if c["confidence"] == "low" else (() if c["selected"] else ("kept",))
+        base = () if c["selected"] else ("kept",)
+        at = f"{line}.end"
+        self.table.insert(at, "\t" + ("☑" if c["selected"] else "☐") + "\t" + format_time(c["start"])
+                          + "\t" + f"{c['end'] - c['start']:.2f} " + _("s") + "\t" + roughcut.kind_name(c)
+                          + "\t", base)
+        self.table.insert(at, roughcut.confidence_name(c["confidence"]),
+                          base + (("low",) if c["confidence"] == "low" and c["selected"] else ()))
+        self.table.insert(at, "\t", base)
+        for n, (word, is_cut) in enumerate(c.get("parts", [])):
+            self.table.insert(at, (" " if n else "") + word,
+                              base + (("cut",) if is_cut and c["selected"] else ()))
 
     def _fill(self):
-        self.tree.delete(*self.tree.get_children())
-        for i, c in enumerate(self.candidates):
-            if self.doubtful.get() and c["confidence"] == "high":
-                continue
-            self.tree.insert("", "end", iid=str(i), values=self._row(i), tags=self._tags(i))
-        rows = self.tree.get_children()
-        if rows:
-            self.tree.selection_set(rows[0])
-            self.tree.focus(rows[0])
+        self.table.configure(state="normal")
+        self.table.delete("1.0", "end")
+        self.rows = [i for i, c in enumerate(self.candidates)
+                     if not (self.doubtful.get() and c["confidence"] == "high")]
+        for line, i in enumerate(self.rows, 1):
+            if line > 1:
+                self.table.insert("end", "\n")
+            self._write_row(line, i)
+        self.table.configure(state="disabled")
+        self._select(self.current if self.current in self.rows else (self.rows[0] if self.rows else None))
         self._summarize()
 
     def _summarize(self):
@@ -612,24 +634,44 @@ class ReviewWindow(tk.Toplevel):
             text=_("{selected} of {total} candidates will be cut ({shown} in the list). With the silences "
                    "the timeline gets {time} shorter.").format(
                 selected=sum(c["selected"] for c in self.candidates), total=len(self.candidates),
-                shown=len(self.tree.get_children()), time=format_time(removed)))
+                shown=len(self.rows), time=format_time(removed)))
+
+    def _select(self, i):
+        self.current = i
+        self.table.tag_remove("current", "1.0", "end")
+        if i is not None:
+            line = self.rows.index(i) + 1
+            self.table.tag_add("current", f"{line}.0", f"{line + 1}.0")
+            self.table.see(f"{line}.0")
 
     def _selected(self):
-        selection = self.tree.selection()
-        return int(selection[0]) if selection else None
+        return self.current
+
+    def _move(self, step):
+        if self.current in self.rows:
+            self._select(self.rows[min(max(self.rows.index(self.current) + step, 0), len(self.rows) - 1)])
 
     def _toggle(self, i=None):
-        i = self._selected() if i is None else i
+        i = self.current if i is None else i
         if i is None:
             return
         self.candidates[i]["selected"] = not self.candidates[i]["selected"]
-        self.tree.item(str(i), values=self._row(i), tags=self._tags(i))
+        line = self.rows.index(i) + 1
+        self.table.configure(state="normal")
+        self.table.delete(f"{line}.0", f"{line}.end")
+        self._write_row(line, i)
+        self.table.configure(state="disabled")
+        self._select(i)
         self._summarize()
 
     def _click(self, event):
-        row = self.tree.identify_row(event.y)
-        if row and self.tree.identify_column(event.x) == "#1":
-            self._toggle(int(row))
+        self.table.focus_set()
+        line = int(self.table.index(f"@{event.x},{event.y}").split(".")[0])
+        if 1 <= line <= len(self.rows) and self.table.dlineinfo(f"{line}.0"):
+            self._select(self.rows[line - 1])
+            if event.x < 70:  # the tick column
+                self._toggle()
+        return "break"
 
     def _set_all(self, value):
         for i, c in enumerate(self.candidates):
