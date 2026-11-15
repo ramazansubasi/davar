@@ -1,6 +1,6 @@
 """davar arayüzü - soldan iş akışını seç, üstten videoyu göster, başlat.
 
-Çift tıklayarak açılır (Davar.bat). Asıl iş davar.py, analiz.py ve reels.py içindedir.
+Çift tıklayarak açılır (Davar.bat). Asıl iş davar.py, analiz.py, ses.py ve reels.py içindedir.
 
 Yeni bir iş akışı eklemek için: Sayfa'dan türeyen bir sınıf yaz (ayarlari_kur,
 eksik, ayarlari_oku, calistir, sonuc_metni) ve en alttaki SAYFALAR listesine ekle.
@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import analiz  # noqa: E402
 import davar  # noqa: E402
 import reels  # noqa: E402
+import ses  # noqa: E402
 
 try:
     import winsound  # aday dinletmek için; yalnızca Windows'ta var
@@ -598,15 +599,89 @@ class Yakinda(Sayfa):
             self.kart(ust, None, "Ne gerekiyor", self.gereken)
 
 
-class SesTemizligi(Yakinda):
-    ad = "Ses Kanalı Temizliği"
-    aciklama = "Her konuşmacının ayrı mikrofonu olan kayıtlarda, konuşmayan kişinin mikrofonunu kısar."
-    yapacaklari = (
-        "Her mikrofon kanalında kimin ne zaman konuştuğunu bulur.",
-        "Konuşmayan kişinin mikrofonuna sızan sesi (diğer konuşmacı, oda yankısı) kısar.",
-        "Temizlenmiş ses dosyalarını ya da ses kesimleri uygulanmış bir çizelge üretir.",
-    )
-    gereken = "Her konuşmacı için ayrı kaydedilmiş ses (ayrı dosya ya da ayrı kanal)."
+class SesSayfasi(Sayfa):
+    ad = "Ses"
+    aciklama = ("Ayrı kaydedilmiş sesleri videodaki yerine oturtur ve ses düzeyini ayarlar. Görüntü yeniden "
+                "kodlanmaz; sonuç yeni bir video olarak yazılır ve sonraki adımlar onunla devam eder.")
+    SES_TURLERI = [("Ses ve video dosyaları", "*.wav *.mp3 *.m4a *.aac *.ogg *.flac *.mp4 *.mov *.mkv"),
+                   ("Tüm dosyalar", "*.*")]
+
+    def ayarlari_kur(self, ust):
+        self.duzey = tk.BooleanVar(value=True)
+        self.dengele = tk.BooleanVar(value=False)
+        self.gurultu = tk.BooleanVar(value=False)
+        self.dosyalar = []
+
+        g = self.kart(ust, None, "Ayrı kaydedilmiş sesler",
+                      "Yaka mikrofonu, ses kayıt cihazı ya da sonradan kaydedilmiş bölümler. Davar her "
+                      "birinin videoda nereye denk geldiğini kendisi bulur, düzeyini videonun sesine "
+                      "eşitler ve videonun o bölümdeki sesinin yerine koyar. Videoda geçmeyen ses "
+                      "yerleştirilmez.")
+        satir = ttk.Frame(g, style="Kart.TFrame")
+        satir.pack(fill="x", pady=(8, 0))
+        self.liste = tk.Listbox(satir, height=4, bg=KUTU, fg=YAZI, bd=0, highlightthickness=1,
+                                highlightbackground=CIZGI, selectbackground="#36415A",
+                                selectforeground="white", activestyle="none", font=("Segoe UI", 10))
+        self.liste.pack(side="left", fill="x", expand=True)
+        dugmeler = ttk.Frame(satir, style="Kart.TFrame")
+        dugmeler.pack(side="left", padx=(10, 0), anchor="n")
+        ttk.Button(dugmeler, text="Ekle…", command=self._ekle).pack(fill="x")
+        ttk.Button(dugmeler, text="Çıkar", command=self._cikar).pack(fill="x", pady=(6, 0))
+
+        g = self.kart(ust, None, "Ses düzeyi")
+        for sira, (d, ad, ipucu) in enumerate((
+                (self.duzey, "YouTube düzeyine getir", "Sesi -14 LUFS'a ayarlar; kısık ya da patlayan sesi düzeltir"),
+                (self.dengele, "Konuşmacıların düzeyini dengele", "Kısık konuşanı yükseltir; kulakla denetle"),
+                (self.gurultu, "Dip gürültüsünü azalt", "Uğultu ve hışırtıyı kısar; kulakla denetle"))):
+            ttk.Checkbutton(g, text=ad, variable=d, style="Kart.TCheckbutton").grid(
+                row=sira, column=0, sticky="w", pady=(8, 0))
+            ttk.Label(g, text=ipucu, style="KartSoluk.TLabel").grid(
+                row=sira, column=1, sticky="w", padx=(14, 0), pady=(8, 0))
+            d.trace_add("write", lambda *_: self.durumu_guncelle())
+
+        self.kart(ust, None, "Sırada",
+                  "Her konuşmacının ayrı mikrofonu olan kayıtlarda, konuşmayan kişinin mikrofonuna "
+                  "sızan sesi kısmak.")
+
+    def _ekle(self):
+        ilk = self.uyg.video_yolu().parent if self.uyg.video.get().strip() else None
+        for yol in filedialog.askopenfilenames(title="Ayrı ses dosyalarını seç", filetypes=self.SES_TURLERI,
+                                               initialdir=ilk if ilk and ilk.is_dir() else None):
+            self.ekle(yol)
+
+    def ekle(self, yol):
+        yol = Path(os.path.normpath(yol))
+        if yol not in self.dosyalar:
+            self.dosyalar.append(yol)
+            self.liste.insert("end", yol.name)
+        self.durumu_guncelle()
+
+    def _cikar(self):
+        for i in reversed(self.liste.curselection()):
+            self.liste.delete(i)
+            del self.dosyalar[i]
+        self.durumu_guncelle()
+
+    def eksik(self):
+        if not (self.dosyalar or self.duzey.get() or self.dengele.get() or self.gurultu.get()):
+            return "Bir ses ekle ya da bir işlem işaretle"
+        return ""
+
+    def ayarlari_oku(self):
+        return dict(video=self.uyg.video_yolu(), sesler=list(self.dosyalar),
+                    klasor=self.uyg.cikti_klasoru(), duzey=self.duzey.get(),
+                    dengele=self.dengele.get(), gurultu=self.gurultu.get())
+
+    def calistir(self, ayar, ilerleme):
+        return ses.ses_isle(ilerleme=ilerleme, **ayar)
+
+    def tamamla(self, sonuc):
+        # sonraki adımlar yeni sesli videoyla çalışsın
+        self.uyg.video.set(str(sonuc["cikti"]))
+        return sonuc
+
+    def sonuc_metni(self, sonuc):
+        return ses.rapor(sonuc) + "\nVideo alanı bu yeni dosyaya çevrildi; sonraki adımlar onunla çalışır."
 
 
 class CokKamera(Yakinda):
@@ -667,7 +742,7 @@ class Yayin(Yakinda):
     gereken = "İçerik Analizi'nin bölüm çıkarma adımı."
 
 
-SAYFALAR = [IlkAnaliz, KabaKurgu, SesTemizligi, CokKamera, IcerikAnalizi, Yazilar, GorselMalzeme,
+SAYFALAR = [SesSayfasi, IlkAnaliz, KabaKurgu, CokKamera, IcerikAnalizi, Yazilar, GorselMalzeme,
             SosyalKlipler, Yayin]
 
 

@@ -1,12 +1,12 @@
 # Davar
 
-DaVinci Resolve için kurgu öncesi yardımcı. Konuşma videolarında elle yapılan sıkıcı işleri üstlenir; dokuz iş akışından üçü çalışıyor, altısı planlandı.
+DaVinci Resolve için kurgu öncesi yardımcı. Konuşma videolarında elle yapılan sıkıcı işleri üstlenir; dokuz iş akışından dördü çalışıyor, beşi planlandı.
 
 | No | İş akışı | Durum | Ne yapar |
 |---|---|---|---|
-| 01 | İlk Analiz | çalışıyor | Konuşmayı bir kez, kelime zamanlarıyla yazıya döker ve kaydeder; altyazı (`.srt`) ve metin (`.txt`) üretir |
-| 02 | Kaba Kurgu | çalışıyor | Sessizlikleri, "ııı / eee" duraksamalarını ve dolgu kelimelerini bulur; adayları onayına sunar; Resolve çizelgesi (`.fcpxml`) yazar |
-| 03 | Ses Kanalı Temizliği | planlandı | Ayrı mikrofonlu kayıtlarda konuşmayan kişinin mikrofonunu kısar |
+| 01 | Ses | çalışıyor | Ayrı kaydedilmiş sesleri videodaki yerine oturtur, ses düzeyini YouTube'a göre ayarlar |
+| 02 | İlk Analiz | çalışıyor | Konuşmayı bir kez, kelime zamanlarıyla yazıya döker ve kaydeder; altyazı (`.srt`) ve metin (`.txt`) üretir |
+| 03 | Kaba Kurgu | çalışıyor | Sessizlikleri, "ııı / eee" duraksamalarını ve dolgu kelimelerini bulur; adayları onayına sunar; Resolve çizelgesi (`.fcpxml`) yazar |
 | 04 | Çok Kamera Kurgusu | planlandı | Kim konuşuyorsa onun kamerasını seçer |
 | 05 | İçerik Analizi | planlandı | Konuları, bölüm zamanlarını ve öne çıkan yerleri çıkarır |
 | 06 | Yazılar | planlandı | Konuşmacı adı ve konu başlığı için ekran yazıları |
@@ -22,13 +22,27 @@ Adı iki yere selam veriyor: **Da**Vinci **R**esolve'a ve bu işin Türkiye'deki
 
 ![Davar penceresi](docs/arayuz.png)
 
-## 01 İlk Analiz
+## 01 Ses
+
+Ayrı kaydedilmiş sesleri (yaka mikrofonu, ses kayıt cihazı, sonradan kaydedilmiş bölümler) videodaki yerine oturtur. Yeri kendisi bulur: iki kayıttaki konuşmanın ritmini karşılaştırır, sonra örnek hassasiyetinde hizalar. Uzun kayıtlarda iki cihazın saat farkından doğan kaymayı da ölçüp giderir.
+
+- Her sesin düzeyi videonun sesine eşitlenir ve videonun o bölümdeki sesinin yerine konur.
+- Videoda geçmeyen bir ses verilirse yerleştirilmez; hangi sesin neden reddedildiği raporda yazar.
+- Bütün ses YouTube düzeyine (-14 LUFS) getirilir. İstenirse konuşmacı düzeyleri dengelenir ve dip gürültüsü azaltılır.
+
+Görüntü yeniden kodlanmaz; sonuç `<video>_sesli.mp4` olarak yazılır. Sonraki adımları bu yeni videoyla yap.
+
+```bash
+python ses.py "video.mp4" --ses "yaka_mikrofonu.wav"
+```
+
+## 02 İlk Analiz
 
 Konuşmayı kelime kelime zamanlarıyla yazıya döker ve videonun yanına `<video>.davar.json` olarak kaydeder. Diğer iş akışları bu kaydı okur; aynı video yeniden yazıya dökülmez. İstenirse YouTube Studio'ya yüklenebilen altyazı (`.srt`) ve zaman damgalı metin (`.txt`) de yazar.
 
 Yazıya dökme bilgisayarında, Whisper modeliyle yapılır; internete bir şey gönderilmez (model ilk kullanımda bir kez indirilir). Özel adlarda ve sayılarda hata yapar; yayınlamadan önce denetle.
 
-## 02 Kaba Kurgu
+## 03 Kaba Kurgu
 
 | Ne bulur | Nasıl |
 |---|---|
@@ -145,6 +159,14 @@ Sessizlik ve duraksama bulmak için yapay zekâ modeli ya da internet bağlantı
 - Arka planı gürültülü kayıtlarda (sokak, rüzgâr, müzik) sessizlik ayrımı zayıflar. Program bu durumda uyarır.
 - Kare hızı değişken kayıtlarda (bazı telefon ve ekran kayıtları) Resolve'da kesim yerleri kayabilir. Program bu durumda uyarır.
 - Kesimler otomatiktir; yayınlamadan önce izlemek senin işin.
+
+## Testler
+
+Hesap kısmı (sessizlik ve duraksama bulma, aday seçimi, altyazı, ses eşleme) yapay seslerle sınanır; ffmpeg ya da video gerekmez.
+
+```bash
+python -m unittest discover tests
+```
 
 ## Yeni iş akışı eklemek
 
