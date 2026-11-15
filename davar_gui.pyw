@@ -27,7 +27,7 @@ import i18n  # noqa: E402
 import roughcut  # noqa: E402
 import titles  # noqa: E402
 import transcript  # noqa: E402
-from common import SAMPLE_RATE, DavarError, format_time, run  # noqa: E402
+from common import SAMPLE_RATE, DavarError, format_time, parse_ranges, parse_time, run  # noqa: E402
 from i18n import N_, _  # noqa: E402
 
 try:
@@ -390,6 +390,30 @@ class RoughCutPage(Page):
         self.pad_after = tk.DoubleVar(value=0.15)
         self.min_hesitation = tk.DoubleVar(value=0.30)
         self.fillers = tk.StringVar()
+        self.keep_from = tk.StringVar()
+        self.keep_to = tk.StringVar()
+        self.remove = tk.StringVar()
+
+        g = self.card(parent, None, _("Trim the start, the end and takes in between"),
+                      _("Drops what was recorded before the programme starts and after it ends, and any "
+                        "range in the middle such as a repeated take. Leave a box empty to trim nothing there."))
+        ttk.Label(g, text=_("Programme starts at"), style="Card.TLabel").grid(row=0, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(g, textvariable=self.keep_from, width=10).grid(row=0, column=1, sticky="w", padx=(12, 20), pady=(8, 0))
+        ttk.Label(g, text=_("Programme ends at"), style="Card.TLabel").grid(row=0, column=2, sticky="w", pady=(8, 0))
+        box = ttk.Frame(g, style="Card.TFrame")
+        box.grid(row=0, column=3, sticky="w", pady=(8, 0))
+        ttk.Entry(box, textvariable=self.keep_to, width=10).pack(side="left", padx=(12, 14))
+        ttk.Label(box, text=_("minute:second, e.g. 13:06"), style="CardMuted.TLabel").pack(side="left")
+        ttk.Label(g, text=_("Also remove"), style="Card.TLabel").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(g, textvariable=self.remove).grid(row=1, column=1, columnspan=3, sticky="ew", padx=(12, 0), pady=(8, 0))
+        g.columnconfigure(3, weight=1)
+        row = ttk.Frame(g, style="Card.TFrame")
+        row.grid(row=2, column=0, columnspan=4, sticky="w", pady=(8, 0))
+        self.excerpt_button = ttk.Button(row, text=_("Show the start and end of the transcript"),
+                                         command=self._show_excerpt)
+        self.excerpt_button.pack(side="left")
+        ttk.Label(row, text=_("ranges as start-end, separated by commas: 50:46-51:03, 12:00-12:30"),
+                  style="CardMuted.TLabel").pack(side="left", padx=(12, 0))
 
         g = self.card(parent, self.silence, _("Cut silences"), _("Removes the gaps where nobody speaks."))
         self.seconds_row(g, 0, _("Shortest silence"), self.min_silence, 0.2, 2.0,
@@ -421,7 +445,24 @@ class RoughCutPage(Page):
         ttk.Label(g, text=_("A second timeline showing the cut candidates with one second before and "
                             "after each, for checking inside Resolve."),
                   style="CardMuted.TLabel", wraplength=680, justify="left").pack(anchor="w", padx=(26, 0))
-        self.fillers.trace_add("write", lambda *_args: self.refresh_state())
+        for variable in (self.fillers, self.keep_from, self.keep_to, self.remove):
+            variable.trace_add("write", lambda *_args: self.refresh_state())
+
+    def _trimming(self):
+        return any(v.get().strip() for v in (self.keep_from, self.keep_to, self.remove))
+
+    def _show_excerpt(self):
+        """Write the first and last lines of the transcript to the log, to help choose trim times."""
+        saved = self.app.transcript()
+        if not saved:
+            return
+        rows = transcript.lines(saved["words"], language=saved.get("language", "tr"))
+        head, tail = rows[:10], rows[-22:] if len(rows) > 32 else rows[10:]
+
+        def show(part):
+            return "\n".join(f"{format_time(b):>9}  {text}" for b, _e, text in part)
+        self.app.log(_("Start of the transcript:") + "\n" + show(head) + "\n\n"
+                     + _("End of the transcript:") + "\n" + show(tail), tall=True)
 
     def _filler_list(self):
         return [f.strip() for f in self.fillers.get().split(",") if f.strip()]
@@ -435,9 +476,10 @@ class RoughCutPage(Page):
             self.transcript_status.configure(
                 text=_("No transcript for this video: hesitations are found from the audio only and "
                        "filler words cannot be searched."))
+        self.excerpt_button.configure(state="normal" if saved else "disabled")
         if self._filler_list() and not saved:
             return _("Run Transcribe first to use filler words")
-        if not (self.silence.get() or self.hesitations.get() or self._filler_list()):
+        if not (self.silence.get() or self.hesitations.get() or self._filler_list() or self._trimming()):
             return _("Tick at least one thing to cut")
         return ""
 
@@ -452,7 +494,10 @@ class RoughCutPage(Page):
                 min_silence=float(self.min_silence.get()), pad_before=float(self.pad_before.get()),
                 pad_after=float(self.pad_after.get()), min_hesitation=float(self.min_hesitation.get()),
                 words=saved["words"] if saved else None, filler_words=self._filler_list(),
-                language=saved.get("language", "tr") if saved else "tr"),
+                language=saved.get("language", "tr") if saved else "tr",
+                keep_from=parse_time(self.keep_from.get()) if self.keep_from.get().strip() else None,
+                keep_to=parse_time(self.keep_to.get()) if self.keep_to.get().strip() else None,
+                remove=parse_ranges(self.remove.get())),
         )
 
     def run(self, settings, progress):
@@ -1125,7 +1170,7 @@ class App(tk.Tk):
         self.bar = ttk.Progressbar(bottom, style="Red.Horizontal.TProgressbar", maximum=100)
         self.bar.pack(fill="x", pady=(8, 10))
         ttk.Label(bottom, text=_("LOG"), style="Tag.TLabel").pack(anchor="w")
-        self.log_box = tk.Text(bottom, height=6, wrap="word", bd=0, bg=FIELD, fg=TEXT,
+        self.log_box = tk.Text(bottom, height=7, wrap="word", bd=0, bg=FIELD, fg=TEXT,
                                insertbackground=TEXT, font=("Consolas", 10), padx=12, pady=10,
                                highlightthickness=1, highlightbackground=BORDER, state="disabled")
         self.log_box.pack(fill="x", pady=(6, 0))
@@ -1245,7 +1290,10 @@ class App(tk.Tk):
         for page in getattr(self, "pages", []):
             page.refresh_state()
 
-    def log(self, text, error=False):
+    def log(self, text, error=False, tall=False):
+        """Add a time-stamped entry to the log. `tall` makes room for a long entry."""
+        if tall:
+            self.log_box.configure(height=11)
         self.log_box.configure(state="normal")
         self.log_box.insert("end", time.strftime("%H:%M:%S  "), "clock")
         self.log_box.insert("end", text.strip().replace("\n", "\n          ") + "\n", "error" if error else ())
@@ -1254,6 +1302,7 @@ class App(tk.Tk):
 
     def start_job(self, page, settings):
         self.busy = True
+        self.log_box.configure(height=7)  # back to normal after a tall entry
         self.last_output = None
         self.folder_button.configure(state="disabled")
         self.bar["value"] = 0

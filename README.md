@@ -74,7 +74,7 @@ python transcript.py "video.mp4" --srt --text
 ```
 
 ```bash
-python roughcut.py "video.mp4" --fillers "you know, like" --review
+python roughcut.py "video.mp4" --from 0:07 --to 51:19 --remove "50:46-51:03" --fillers "you know, like"
 ```
 
 ```bash
@@ -130,6 +130,8 @@ The dictionary is applied every time a transcript is read: a word taught once is
 | Silences | From the audio level. The threshold is chosen from the recording's own background noise. Cut directly. |
 | "Uh / um" hesitations | From the audio itself (flat pitch, steady sound). Checked against the transcript when there is one. |
 | Filler words | From your list ("you know, like"), searched in the transcript. |
+
+**Trimming.** You can also give the time the programme starts and ends, and ranges to drop from the middle (a repeated take, an off-air exchange): everything outside is removed. The page can print the first and last lines of the transcript to help you pick the times.
 
 Hesitations and filler words arrive as **candidates** in a list with time, kind, confidence and the surrounding sentence. You can listen to each candidate, hear how it sounds with the cut, and change its tick. Confident ones arrive ticked, doubtful ones unticked; filler words always arrive unticked, because only you can tell which ones are superfluous.
 

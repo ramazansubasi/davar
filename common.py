@@ -2,6 +2,7 @@
 
 import json
 import math
+import re
 import subprocess
 import sys
 from fractions import Fraction
@@ -66,6 +67,33 @@ def video_info(path):
         "audio_channels": int(audio.get("channels", 2)),
         "audio_rate": int(audio.get("sample_rate", 48000)),
     }
+
+
+def parse_time(text):
+    """Turn "13:06", "1:02:03.5" or "786.4" into seconds."""
+    text = str(text).strip().replace(",", ".")
+    if not re.fullmatch(r"\d+(\.\d+)?(:\d+(\.\d+)?){0,2}", text):
+        raise DavarError(_("could not read the time “{text}”. Example: 13:06 or 1:02:03").format(text=text))
+    seconds = 0.0
+    for part in text.split(":"):
+        seconds = seconds * 60 + float(part)
+    return seconds
+
+
+def parse_ranges(text):
+    """Turn "50:46-51:03, 12:00-12:30" into [(3046.0, 3063.0), (720.0, 750.0)]."""
+    ranges = []
+    for piece in re.split(r"[,;\n]", str(text)):
+        if not piece.strip():
+            continue
+        ends = re.split(r"\s*[-–—]\s*", piece.strip())
+        if len(ends) != 2:
+            raise DavarError(_("could not read the range “{text}”. Example: 50:46-51:03").format(text=piece.strip()))
+        start, end = parse_time(ends[0]), parse_time(ends[1])
+        if end <= start:
+            raise DavarError(_("the range “{text}” ends before it starts.").format(text=piece.strip()))
+        ranges.append((start, end))
+    return ranges
 
 
 def format_time(seconds):

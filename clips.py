@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-from common import NO_WINDOW, DavarError, format_time, run, video_info
+from common import NO_WINDOW, DavarError, format_time, parse_time, run, video_info
 from i18n import _
 from roughcut import is_filler_sound
 
@@ -32,17 +32,6 @@ FONTS = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
 ]
-
-
-def parse_time(text):
-    """Turn "13:06", "1:02:03.5" or "786.4" into seconds."""
-    text = str(text).strip().replace(",", ".")
-    if not re.fullmatch(r"\d+(\.\d+)?(:\d+(\.\d+)?){0,2}", text):
-        raise DavarError(_("could not read the time “{text}”. Example: 13:06 or 1:02:03").format(text=text))
-    seconds = 0.0
-    for part in text.split(":"):
-        seconds = seconds * 60 + float(part)
-    return seconds
 
 
 def _font(size):

@@ -15,7 +15,8 @@ from xml.sax.saxutils import quoteattr
 
 import numpy as np
 
-from common import SAMPLE_RATE, WINDOW, DavarError, format_time, run, video_info
+from common import (SAMPLE_RATE, WINDOW, DavarError, format_time, parse_ranges, parse_time, run,
+                    video_info)
 from i18n import _
 
 
@@ -171,19 +172,22 @@ def silent_intervals(db, threshold, min_silence, removed=None):
     return intervals
 
 
-def compute_cuts(intervals, info, pad_before, pad_after):
+def compute_cuts(intervals, info, pad_before, pad_after, audio_end=None):
     """Turn the intervals into cuts measured in frames, leaving padding around words.
 
     `pad_before` is kept before a word starts, `pad_after` after a word ends.
+    `audio_end` is where the audio stops; it is often a few frames short of the video,
+    and an interval reaching it must run to the very end of the video.
     """
     fps, total = info["fps"], info["frames"]
+    last_moment = min(audio_end or info["duration"], info["duration"]) - 0.02
     cuts = []
     for start, end, starts_removed, ends_removed in intervals:
         # except at the very start and end of the video, keep padding on both sides of words;
         # at the edge of an "uh" glued to a word keep almost none, or its tail stays audible
         cut_start = start + (HESITATION_PAD if starts_removed else pad_after) if start > 0.02 else 0.0
         cut_end = (end - (HESITATION_PAD if ends_removed else pad_before)
-                   if end < info["duration"] - 0.02 else info["duration"])
+                   if end < last_moment else info["duration"])
         first = math.ceil(cut_start * fps)
         last = min(math.floor(cut_end * fps), total)
         if last - first >= 2:
@@ -358,11 +362,14 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
 
 def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0.10, pad_after=0.15,
             threshold=None, min_hesitation=0.30, include_word_ends=False, words=None,
-            filler_words=(), language="tr", progress=None):
+            filler_words=(), language="tr", keep_from=None, keep_to=None, remove=(), progress=None):
     """Analyse the video and return a state holding the silence threshold and the cut candidates.
 
     Writes nothing. The result goes to `apply`; in between, the "selected" flags of
     the candidates may be changed.
+
+    `keep_from` / `keep_to` trim everything before / after those seconds, and `remove`
+    is a list of (start, end) ranges to drop from the middle, such as a repeated take.
     """
     def step(percent, text):
         if progress:
@@ -371,8 +378,11 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
     video = Path(video)
     if not video.is_file():
         raise DavarError(_("file not found: {path}").format(path=video))
-    if not silence and not hesitations and not filler_words:
+    trimming = keep_from is not None or keep_to is not None or bool(remove)
+    if not silence and not hesitations and not filler_words and not trimming:
         raise DavarError(_("nothing was selected to cut."))
+    if keep_from is not None and keep_to is not None and keep_to <= keep_from:
+        raise DavarError(_("the end of the programme must come after its start."))
     if filler_words and not words:
         raise DavarError(_("run Transcribe first to search for filler words."))
 
@@ -400,6 +410,7 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
         "min_silence": min_silence if silence else float("inf"),
         "pad_before": pad_before, "pad_after": pad_after, "candidates": candidates,
         "has_transcript": bool(words),
+        "keep_from": keep_from, "keep_to": keep_to, "remove": list(remove),
     }
 
 
@@ -410,8 +421,15 @@ def cut_plan(state):
     for c in state["candidates"]:
         if c["selected"]:
             mask[max(int(round(c["start"] / WINDOW)), 0): int(round(c["end"] / WINDOW))] = True
+    # manual trimming goes into the same mask, so it merges with a neighbouring silence
+    if state.get("keep_from") is not None:
+        mask[: int(round(state["keep_from"] / WINDOW))] = True
+    if state.get("keep_to") is not None:
+        mask[int(round(state["keep_to"] / WINDOW)):] = True
+    for start, end in state.get("remove", ()):
+        mask[max(int(round(start / WINDOW)), 0): int(round(end / WINDOW))] = True
     intervals = silent_intervals(db, state["threshold"], state["min_silence"], mask)
-    cuts = compute_cuts(intervals, state["info"], state["pad_before"], state["pad_after"])
+    cuts = compute_cuts(intervals, state["info"], state["pad_before"], state["pad_after"], len(db) * WINDOW)
     return cuts, remaining_parts(cuts, state["info"]["frames"])
 
 
@@ -445,6 +463,8 @@ def apply(state, output=None, review=False):
         "cuts": cuts, "candidates": state["candidates"], "selected": selected,
         "removed": sum(end - start for start, end in cuts) / fps,
         "output": output, "review": review_file,
+        "keep_from": state.get("keep_from"), "keep_to": state.get("keep_to"),
+        "remove": state.get("remove", []),
     }
 
 
@@ -469,6 +489,14 @@ def report(r, detailed=True):
             before=format_time(info["duration"]), after=format_time(info["duration"] - r["removed"]),
             seconds=r["removed"]),
     ]
+    trimmed = []
+    if r.get("keep_from") is not None:
+        trimmed.append(_("start up to {time}").format(time=format_time(r["keep_from"])))
+    if r.get("keep_to") is not None:
+        trimmed.append(_("end from {time}").format(time=format_time(r["keep_to"])))
+    trimmed += [f"{format_time(a)}-{format_time(b)}" for a, b in r.get("remove", [])]
+    if trimmed:
+        lines.append(_("Trimmed      : {parts}").format(parts=", ".join(trimmed)))
     if r["speech"] - r["floor"] < 15:
         lines.append(_("WARNING: the background noise is close to the speech level; cuts may be wrong."))
     if info["variable_rate"]:
@@ -511,6 +539,11 @@ def main():
     p.add_argument("--fillers", default="",
                    help='filler words to cut, comma separated (e.g. "you know, like"); '
                         "needs a transcript and cuts every match")
+    p.add_argument("--from", dest="keep_from", default=None,
+                   help="trim everything before this time (e.g. 0:07.5)")
+    p.add_argument("--to", dest="keep_to", default=None, help="trim everything after this time (e.g. 51:19)")
+    p.add_argument("--remove", default="",
+                   help='ranges to drop from the middle, comma separated (e.g. "50:46-51:03")')
     p.add_argument("--review", action="store_true",
                    help="also write a timeline with only the cut hesitations, for checking (<name>_fillers.fcpxml)")
     p.add_argument("--output", type=Path, default=None,
@@ -525,7 +558,9 @@ def main():
             min_silence=a.min_silence, pad_before=a.pad_before, pad_after=a.pad_after,
             threshold=a.threshold, min_hesitation=a.min_hesitation, include_word_ends=a.word_ends,
             words=saved["words"] if saved else None, filler_words=fillers,
-            language=saved["language"] if saved else "tr")
+            language=saved["language"] if saved else "tr",
+            keep_from=parse_time(a.keep_from) if a.keep_from else None,
+            keep_to=parse_time(a.keep_to) if a.keep_to else None, remove=parse_ranges(a.remove))
         for c in state["candidates"]:  # nobody to ask on the command line: requested words are cut
             if c["kind"] == "word":
                 c["selected"] = True

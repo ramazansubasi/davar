@@ -76,6 +76,47 @@ class Silence(unittest.TestCase):
         self.assertEqual(parts[-1][1], info["frames"])
 
 
+class Trimming(unittest.TestCase):
+    def state(self, **trim):
+        rng = np.random.default_rng(7)
+        x = speech(20, rng)  # twenty seconds of speech with no silence to cut
+        db = levels(x)
+        info = {"fps": Fraction(30), "duration": 20.0, "frames": 600}
+        return {"db": db, "threshold": roughcut.auto_threshold(db)[0], "min_silence": 0.5, "info": info,
+                "pad_before": 0.10, "pad_after": 0.15, "candidates": [],
+                "keep_from": None, "keep_to": None, "remove": [], **trim}
+
+    def test_nothing_is_cut_without_trimming(self):
+        cuts, parts = roughcut.cut_plan(self.state())
+        self.assertEqual((cuts, parts), ([], [(0, 600)]))
+
+    def test_start_end_and_a_middle_range_are_removed(self):
+        cuts, parts = roughcut.cut_plan(self.state(keep_from=2.0, keep_to=18.0, remove=[(9.0, 11.0)]))
+        self.assertEqual(len(parts), 2)
+        (a0, a1), (b0, b1) = parts
+        # a trim edge may keep the usual padding after the word before it, never more
+        for frame, second in ((a0, 2.0), (a1, 9.0), (b0, 11.0), (b1, 18.0)):
+            self.assertAlmostEqual(frame / 30, second, delta=0.2)
+        self.assertEqual(cuts[0][0], 0)
+        self.assertEqual(cuts[-1][1], 600, "nothing may be left after the end trim")
+
+    def test_end_trim_reaches_the_last_frame_even_when_the_audio_is_shorter(self):
+        state = self.state(keep_to=18.0)
+        state["info"] = dict(state["info"], duration=20.07, frames=602)  # video two frames longer than audio
+        cuts, parts = roughcut.cut_plan(state)
+        self.assertEqual(cuts[-1][1], 602)
+        self.assertLess(parts[-1][1] / 30, 18.2)
+
+    def test_range_parsing(self):
+        from common import DavarError, parse_ranges, parse_time
+        self.assertEqual(parse_time("1:02:03.5"), 3723.5)
+        self.assertEqual(parse_ranges("50:46-51:03, 12:00 – 12:30"), [(3046.0, 3063.0), (720.0, 750.0)])
+        self.assertEqual(parse_ranges("  "), [])
+        for bad in ("12:00", "12:30-12:00", "abc-def"):
+            with self.assertRaises(DavarError):
+                parse_ranges(bad)
+
+
 class Hesitation(unittest.TestCase):
     def find(self, x, shortest=0.30):
         db = levels(x)

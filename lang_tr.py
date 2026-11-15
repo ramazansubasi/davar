@@ -66,6 +66,13 @@ TRANSLATIONS = {
     "... and {n} more candidates": "... ve {n} aday daha",
     "Timeline written: {path}": "Zaman çizelgesi yazıldı: {path}",
     "Review timeline written: {path}": "Kontrol çizelgesi yazıldı: {path}",
+    "the end of the programme must come after its start.": "program bitişi başlangıcından sonra olmalı.",
+    "start up to {time}": "baştan {time} anına kadar",
+    "end from {time}": "{time} anından sona kadar",
+    "Trimmed      : {parts}": "Kırpıldı     : {parts}",
+    "could not read the range “{text}”. Example: 50:46-51:03":
+        "aralık anlaşılmadı: “{text}”. Örnek: 50:46-51:03",
+    "the range “{text}” ends before it starts.": "“{text}” aralığının bitişi başlangıcından önce.",
     "Transcript found: hesitations were checked against it.":
         "İlk Analiz bulundu: duraksamalar metinle karşılaştırıldı.",
 
@@ -317,6 +324,20 @@ TRANSLATIONS = {
         "dolgu kelimeleri aranamaz.",
     "Run Transcribe first to use filler words": "Dolgu kelimeleri için önce İlk Analiz'i çalıştır",
     "Tick at least one thing to cut": "Kesilecek en az bir şey işaretle",
+
+    "Trim the start, the end and takes in between": "Başı, sonu ve aradaki tekrarları kırp",
+    "Drops what was recorded before the programme starts and after it ends, and any "
+    "range in the middle such as a repeated take. Leave a box empty to trim nothing there.":
+        "Program başlamadan önce ve bittikten sonra kaydedilenleri, bir de aradaki tekrar çekim gibi "
+        "aralıkları atar. Boş bıraktığın kutu için kırpma yapılmaz.",
+    "Programme starts at": "Program başlangıcı",
+    "Programme ends at": "Program bitişi",
+    "Also remove": "Ayrıca at",
+    "Show the start and end of the transcript": "Metnin başını ve sonunu göster",
+    "ranges as start-end, separated by commas: 50:46-51:03, 12:00-12:30":
+        "aralıklar başlangıç-bitiş biçiminde, virgülle ayrılır: 50:46-51:03, 12:00-12:30",
+    "Start of the transcript:": "Metnin başı:",
+    "End of the transcript:": "Metnin sonu:",
 
     # --- interface: review window ---------------------------------------------
     "Rough Cut candidates": "Kaba Kurgu adayları",
