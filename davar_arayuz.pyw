@@ -1,6 +1,6 @@
 """davar arayüzü - soldan iş akışını seç, üstten videoyu göster, başlat.
 
-Çift tıklayarak açılır (Davar.bat). Asıl iş davar.py, analiz.py, ses.py ve reels.py içindedir.
+Çift tıklayarak açılır (Davar.bat). Asıl iş davar.py, analiz.py, ses.py, yazilar.py ve reels.py içindedir.
 
 Yeni bir iş akışı eklemek için: Sayfa'dan türeyen bir sınıf yaz (ayarlari_kur,
 eksik, ayarlari_oku, calistir, sonuc_metni) ve en alttaki SAYFALAR listesine ekle.
@@ -16,13 +16,15 @@ import time
 import wave
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import analiz  # noqa: E402
 import davar  # noqa: E402
 import reels  # noqa: E402
 import ses  # noqa: E402
+import sozluk  # noqa: E402
+import yazilar  # noqa: E402
 
 try:
     import winsound  # aday dinletmek için; yalnızca Windows'ta var
@@ -51,6 +53,7 @@ class Sayfa(ttk.Frame):
     ad = ""  # menüde görünen ad
     aciklama = ""
     hazir = True  # False ise henüz yazılmamış bir iş akışıdır
+    video_gerekli = True  # False ise video seçilmeden de çalışabilir
 
     def __init__(self, ust, uyg, sira):
         super().__init__(ust, style="Panel.TFrame", padding=(28, 22))
@@ -167,7 +170,8 @@ class Sayfa(ttk.Frame):
         if self.uyg.calisiyor:
             self.baslat_dugmesi.configure(state="disabled")
             return
-        neden = "Önce yukarıdan bir video seç" if not self.uyg.video.get().strip() else self.eksik()
+        videosuz = self.video_gerekli and not self.uyg.video.get().strip()
+        neden = "Önce yukarıdan bir video seç" if videosuz else self.eksik()
         self.baslat_dugmesi.configure(state="disabled" if neden else "normal")
         self.durum.configure(text=neden)
 
@@ -197,6 +201,13 @@ class IlkAnaliz(Sayfa):
         g = self.kart(ust, None, "Durum")
         self.kayit_durumu = ttk.Label(g, text="", style="Kart.TLabel", wraplength=700, justify="left")
         self.kayit_durumu.pack(anchor="w", pady=(6, 0))
+        satir = ttk.Frame(g, style="Kart.TFrame")
+        satir.pack(anchor="w", pady=(10, 0))
+        self.duzelt_dugmesi = ttk.Button(satir, text="Metni düzelt…", command=self._metni_duzelt)
+        self.duzelt_dugmesi.pack(side="left")
+        ttk.Button(satir, text="Sözlüğü aç", command=self._sozlugu_ac).pack(side="left", padx=(8, 0))
+        ttk.Label(satir, text="Sözlük: hep yanlış yazılan kelimeler bir kez öğretilir, sonra kendiliğinden düzelir",
+                  style="KartSoluk.TLabel").pack(side="left", padx=(12, 0))
 
         g = self.kart(ust, None, "Yazıya dökme",
                       "Bilgisayarında çalışır, internete bir şey gönderilmez. Videonun süresinin "
@@ -229,7 +240,27 @@ class IlkAnaliz(Sayfa):
                      f"model {kayit['model']}. Başlat'a basarsan yalnızca ek dosyalar yazılır.")
         else:
             self.kayit_durumu.configure(text="Bu video henüz yazıya dökülmedi.")
+        self.duzelt_dugmesi.configure(state="normal" if kayit and not self.uyg.calisiyor else "disabled")
         return ""
+
+    def _metni_duzelt(self):
+        kayit = self.uyg.analiz()
+        if kayit:
+            pencere = MetinPenceresi(self.uyg, kayit, self.uyg.video_yolu())
+            if pencere.ozet:
+                self.uyg.kayit(pencere.ozet)
+            self.durumu_guncelle()
+
+    def _sozlugu_ac(self):
+        yol = sozluk.sozluk_yolu()
+        if not yol.exists():
+            yol.parent.mkdir(parents=True, exist_ok=True)
+            yol.write_text("# Davar kişisel sözlüğü. Her satır: yanlış = doğru\n"
+                           "# Örnek:\n# tuzda = Tuzla\n# top sen = TÜPSAN\n", encoding="utf-8")
+        if hasattr(os, "startfile"):
+            os.startfile(yol)  # Not Defteri'nde açılır
+        self.uyg.kayit(f"Sözlük dosyası: {yol}\nHer satır: yanlış = doğru. Kaydettiğinde yeni ve eski "
+                       "analizlerin hepsine uygulanır.")
 
     def ayarlari_oku(self):
         return dict(video=self.uyg.video_yolu(), klasor=self.uyg.cikti_klasoru(), srt=self.srt.get(),
@@ -710,15 +741,246 @@ class IcerikAnalizi(Yakinda):
                "yavaş ve daha zayıf). Hangisinin kullanılacağı henüz kararlaştırılmadı.")
 
 
-class Yazilar(Yakinda):
+class MetinPenceresi(tk.Toplevel):
+    """İlk Analiz'in metnini satır satır düzeltme penceresi."""
+
+    def __init__(self, uyg, kayit, video):
+        super().__init__(uyg)
+        self.kayit, self.video = kayit, video
+        self.kelimeler = [list(k) for k in kayit["kelimeler"]]
+        self.duzeltmeler = []
+        self.degisti = False
+        self.ozet = ""
+        self.gecici = tempfile.TemporaryDirectory(prefix="davar_metin_")
+        self.title("Davar — metni düzelt")
+        self.configure(bg=PANEL)
+        self.geometry("1100x700")
+        self.minsize(820, 460)
+        self.transient(uyg)
+
+        ust = ttk.Frame(self, style="Panel.TFrame", padding=(18, 14, 18, 8))
+        ust.pack(fill="x")
+        ttk.Label(ust, text="Metni düzelt", style="Baslik.TLabel").pack(anchor="w")
+        ttk.Label(ust, text="Bir satır seç, alttaki kutuda düzelt, Enter'a bas: düzeltme uygulanır ve sonraki "
+                            "satıra geçilir. Kaydedince altyazı ve metin dosyaları da yenilenir.",
+                  style="PanelSoluk.TLabel", wraplength=1040, justify="left").pack(anchor="w", pady=(4, 0))
+
+        alt = ttk.Frame(self, style="Panel.TFrame", padding=(18, 8, 18, 14))
+        alt.pack(side="bottom", fill="x")
+        self.metin = tk.StringVar()
+        self.kutu = ttk.Entry(alt, textvariable=self.metin, font=("Segoe UI", 12))
+        self.kutu.pack(fill="x", ipady=5)
+        satir = ttk.Frame(alt, style="Panel.TFrame")
+        satir.pack(fill="x", pady=(10, 0))
+        ttk.Button(satir, text="Dinle", command=self._dinle).pack(side="left")
+        ttk.Button(satir, text="Uygula ve sonraki (Enter)", command=self._uygula).pack(side="left", padx=(8, 0))
+        self.durum = ttk.Label(satir, text="", style="Panel.TLabel")
+        self.durum.pack(side="left", padx=14)
+        ttk.Button(satir, text="Kaydet", style="Ana.TButton", command=self._kaydet).pack(side="right")
+        ttk.Button(satir, text="Vazgeç", command=self._kapat).pack(side="right", padx=(0, 10))
+
+        orta = ttk.Frame(self, style="Panel.TFrame", padding=(18, 4))
+        orta.pack(fill="both", expand=True)
+        self.liste = ttk.Treeview(orta, columns=("zaman", "metin"), show="headings", selectmode="browse")
+        self.liste.heading("zaman", text="Zaman", anchor="e")
+        self.liste.heading("metin", text="Metin", anchor="w")
+        self.liste.column("zaman", width=90, anchor="e", stretch=False)
+        self.liste.column("metin", width=900, anchor="w")
+        cubuk = ttk.Scrollbar(orta, orient="vertical", command=self.liste.yview)
+        self.liste.configure(yscrollcommand=cubuk.set)
+        self.liste.pack(side="left", fill="both", expand=True)
+        cubuk.pack(side="right", fill="y", padx=(6, 0))
+        self.liste.tag_configure("degisti", foreground=VURGU)
+        self.liste.bind("<<TreeviewSelect>>", lambda _: self._secildi())
+        self.liste.bind("<Double-1>", lambda _: self._dinle())
+        self.kutu.bind("<Return>", lambda _: self._uygula())
+        self.degisenler = set()  # düzeltilen satırların başlangıç zamanları
+
+        self._doldur(0.0)
+        self.protocol("WM_DELETE_WINDOW", self._kapat)
+        self.grab_set()
+        self.kutu.focus_set()
+        self.wait_window()
+
+    def _satir_metni(self, grup):
+        return " ".join(self.kelimeler[i][0] for i in grup)
+
+    def _doldur(self, sec_zaman):
+        """Listeyi yeniden kurar ve verilen zamana en yakın satırı seçer."""
+        self.gruplar = analiz.satir_gruplari(self.kelimeler)
+        self.liste.delete(*self.liste.get_children())
+        en_yakin, fark = None, 1e9
+        for i, grup in enumerate(self.gruplar):
+            bas = self.kelimeler[grup[0]][1]
+            self.liste.insert("", "end", iid=str(i), values=(davar.sure_yaz(bas), self._satir_metni(grup)),
+                              tags=("degisti",) if round(bas, 2) in self.degisenler else ())
+            if abs(bas - sec_zaman) < fark:
+                en_yakin, fark = i, abs(bas - sec_zaman)
+        if en_yakin is not None:
+            self._sec(en_yakin)
+        self.durum.configure(text=f"{len(self.gruplar)} satır, {len(self.degisenler)} tanesi düzeltildi")
+
+    def _sec(self, i):
+        i = min(max(i, 0), len(self.gruplar) - 1)
+        self.liste.selection_set(str(i))
+        self.liste.focus(str(i))
+        self.liste.see(str(i))
+        self._secildi()  # seçim olayı gecikmeli gelir; kutu hemen yeni satırı göstersin
+
+    def _secili(self):
+        secim = self.liste.selection()
+        return int(secim[0]) if secim else None
+
+    def _secildi(self):
+        i = self._secili()
+        if i is not None:
+            self.metin.set(self._satir_metni(self.gruplar[i]))
+            self.kutu.icursor("end")
+
+    def _uygula(self):
+        i = self._secili()
+        if i is None:
+            return
+        grup, yeni = self.gruplar[i], self.metin.get().strip()
+        bas = self.kelimeler[grup[0]][1]
+        sonraki = self.kelimeler[self.gruplar[i + 1][0]][1] if i + 1 < len(self.gruplar) else bas
+        if yeni and yeni != self._satir_metni(grup):
+            self.kelimeler, duzeltmeler = analiz.satiri_degistir(self.kelimeler, grup, yeni)
+            self.duzeltmeler += duzeltmeler
+            self.degisenler.add(round(bas, 2))
+            self.degisti = True
+        self._doldur(sonraki)
+
+    def _dinle(self):
+        i = self._secili()
+        if i is None:
+            return
+        if winsound is None:
+            self.durum.configure(text="Dinleme yalnızca Windows'ta çalışıyor.")
+            return
+        grup = self.gruplar[i]
+        bas = max(self.kelimeler[grup[0]][1] - 0.2, 0)
+        sure = self.kelimeler[grup[-1]][2] + 0.3 - bas
+        yol = Path(self.gecici.name) / "satir.wav"
+        winsound.PlaySound(None, winsound.SND_PURGE)  # önceki çalma dosyayı bıraksın
+        try:
+            davar.calistir(["ffmpeg", "-v", "error", "-y", "-ss", f"{bas:.2f}", "-t", f"{sure:.2f}",
+                            "-i", str(self.video), "-vn", "-ac", "1", "-ar", "22050", str(yol)])
+        except davar.Hata as h:
+            self.durum.configure(text=str(h).splitlines()[0])
+            return
+        winsound.PlaySound(str(yol), winsound.SND_FILENAME | winsound.SND_ASYNC)
+
+    def _kaydet(self):
+        if self.metin.get().strip() != self._satir_metni(self.gruplar[self._secili() or 0]):
+            self._uygula()  # kutuda bekleyen düzeltme kaybolmasın
+        if not self.degisti:
+            self._kapat()
+            return
+        self.kayit["kelimeler"] = self.kelimeler
+        analiz.analiz_kaydet(self.kayit)
+        klasor, ad = Path(self.kayit["yol"]).parent, self.video.stem
+        yenilenen = []
+        for dosya, yaz in ((klasor / (ad + ".srt"), analiz.srt_yaz),
+                           (klasor / (ad + "_metin.txt"), analiz.metin_yaz)):
+            if dosya.exists():
+                yaz(self.kayit, dosya)
+                yenilenen.append(dosya.name)
+        self.ozet = (f"Metin düzeltildi: {len(self.degisenler)} satır kaydedildi."
+                     + (f" Yenilenen dosyalar: {', '.join(yenilenen)}." if yenilenen else ""))
+        # tek kelimelik düzeltmeleri sözlüğe eklemeyi öner
+        ciftler = list(dict.fromkeys((e, y) for e, y in self.duzeltmeler if e and y))
+        if ciftler:
+            liste = "\n".join(f"   {e}  →  {y}" for e, y in ciftler[:12])
+            if messagebox.askyesno(
+                    "Sözlüğe eklensin mi?",
+                    "Bu düzeltmeler kişisel sözlüğe eklensin mi? Eklenirse bundan sonraki bütün "
+                    f"videolarda kendiliğinden düzeltilir.\n\n{liste}"
+                    + (f"\n   … ve {len(ciftler) - 12} tane daha" if len(ciftler) > 12 else ""),
+                    parent=self):
+                sozluk.sozluge_ekle(ciftler)
+                self.ozet += f" {len(ciftler)} kelime sözlüğe eklendi."
+        self._kapat()
+
+    def _kapat(self):
+        if winsound is not None:
+            winsound.PlaySound(None, winsound.SND_PURGE)
+        try:
+            self.gecici.cleanup()
+        except OSError:
+            pass
+        self.grab_release()
+        self.destroy()
+
+
+class Yazilar(Sayfa):
     ad = "Yazılar"
-    aciklama = "Konuşmacı adı ve konu başlığı gibi ekran yazılarını (KJ / alt bant) hazırlar."
-    yapacaklari = (
-        "Konuşmacı adı ve unvanı için yumuşak giriş-çıkışlı alt bant üretir.",
-        "Konu değiştikçe ekrana gelen konu başlıklarını hazırlar.",
-        "Yazıları, zamanları belli saydam video ya da çizelge olarak Resolve'a verir.",
-    )
-    gereken = "Konu başlıklarının zamanı için İçerik Analizi'nin bölüm çıkarma adımı."
+    aciklama = ("Konuşmacı adı ve unvanı için KJ (alt bant) üretir: saydam zeminli, girişi ve çıkışı "
+                "yumuşak hazır bir video. Resolve'da videonun üstündeki şeride sürüklenir.")
+    video_gerekli = False
+    KONUMLAR = {"Sol alt": "sol", "Orta alt": "orta", "Sağ alt": "sag"}
+
+    def ayarlari_kur(self, ust):
+        self.sure = tk.DoubleVar(value=6.0)
+        self.konum = tk.StringVar(value="Sol alt")
+        self.renk = tk.StringVar(value="#E30613")
+
+        g = self.kart(ust, None, "Konuşmacılar",
+                      "Her satıra bir kişi: Ad Soyad | Unvan. Unvan yazmak zorunlu değil. "
+                      "Her kişi için ayrı bir dosya yazılır.")
+        self.kisiler = tk.Text(g, height=4, bg=KUTU, fg=YAZI, insertbackground=YAZI, bd=0,
+                               highlightthickness=1, highlightbackground=CIZGI, highlightcolor=VURGU,
+                               font=("Segoe UI", 11), padx=8, pady=6, wrap="none")
+        self.kisiler.pack(fill="x", pady=(8, 0))
+        self.kisiler.bind("<KeyRelease>", lambda _: self.durumu_guncelle())
+
+        g = self.kart(ust, None, "Görünüm")
+        ttk.Label(g, text="Ekranda kalma", style="Kart.TLabel").grid(row=0, column=0, sticky="w", pady=(8, 0))
+        ttk.Spinbox(g, textvariable=self.sure, from_=2, to=30, increment=0.5, width=6,
+                    format="%.1f").grid(row=0, column=1, sticky="w", padx=(12, 6), pady=(8, 0))
+        ttk.Label(g, text="sn      Yarım saniyede açılır, sonunda solarak çıkar",
+                  style="KartSoluk.TLabel").grid(row=0, column=2, sticky="w", pady=(8, 0))
+        ttk.Label(g, text="Yer", style="Kart.TLabel").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Combobox(g, textvariable=self.konum, values=list(self.KONUMLAR), width=10,
+                     state="readonly").grid(row=1, column=1, columnspan=2, sticky="w", padx=(12, 0), pady=(8, 0))
+        ttk.Label(g, text="Vurgu rengi", style="Kart.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(g, textvariable=self.renk, width=10).grid(row=2, column=1, sticky="w", padx=(12, 6), pady=(8, 0))
+        ttk.Label(g, text="Şerit ve unvan bandının rengi; örnek #E30613",
+                  style="KartSoluk.TLabel").grid(row=2, column=2, sticky="w", pady=(8, 0))
+        self.boyut_notu = ttk.Label(g, text="", style="KartSoluk.TLabel")
+        self.boyut_notu.grid(row=3, column=0, columnspan=3, sticky="w", pady=(10, 0))
+
+        self.kart(ust, None, "Sırada",
+                  "Konu değiştikçe ekrana gelen konu başlıkları ve KJ'lerin çizelgeye kendiliğinden yerleştirilmesi.")
+
+    def _satirlar(self):
+        return [x for x in self.kisiler.get("1.0", "end").splitlines() if x.strip()]
+
+    def _video(self):
+        video = self.uyg.video_yolu()
+        return video if self.uyg.video.get().strip() and video.is_file() else None
+
+    def eksik(self):
+        video = self._video()
+        self.boyut_notu.configure(
+            text="Boyut ve kare hızı seçili videodan alınır." if video
+            else "Video seçilmedi: 1920x1080, saniyede 30 kare olarak üretilir.")
+        if not self._satirlar():
+            return "En az bir ad yaz"
+        if not video and not self.uyg.klasor.get().strip():
+            return "Video seçmeden üretmek için çıktı klasörü seç"
+        return ""
+
+    def ayarlari_oku(self):
+        return dict(satirlar=self._satirlar(), video=self._video(), klasor=self.uyg.cikti_klasoru(),
+                    sure=float(self.sure.get()), renk=self.renk.get(), konum=self.KONUMLAR[self.konum.get()])
+
+    def calistir(self, ayar, ilerleme):
+        satirlar = ayar.pop("satirlar")
+        return yazilar.kjleri_uret(satirlar, ilerleme=ilerleme, **ayar)
+
+    def sonuc_metni(self, sonuc):
+        return yazilar.rapor(sonuc)
 
 
 class GorselMalzeme(Yakinda):

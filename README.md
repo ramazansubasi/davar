@@ -1,6 +1,6 @@
 # Davar
 
-DaVinci Resolve için kurgu öncesi yardımcı. Konuşma videolarında elle yapılan sıkıcı işleri üstlenir; dokuz iş akışından dördü çalışıyor, beşi planlandı.
+DaVinci Resolve için kurgu öncesi yardımcı. Konuşma videolarında elle yapılan sıkıcı işleri üstlenir; dokuz iş akışından beşi çalışıyor, dördü planlandı.
 
 | No | İş akışı | Durum | Ne yapar |
 |---|---|---|---|
@@ -9,7 +9,7 @@ DaVinci Resolve için kurgu öncesi yardımcı. Konuşma videolarında elle yap�
 | 03 | Kaba Kurgu | çalışıyor | Sessizlikleri, "ııı / eee" duraksamalarını ve dolgu kelimelerini bulur; adayları onayına sunar; Resolve çizelgesi (`.fcpxml`) yazar |
 | 04 | Çok Kamera Kurgusu | planlandı | Kim konuşuyorsa onun kamerasını seçer |
 | 05 | İçerik Analizi | planlandı | Konuları, bölüm zamanlarını ve öne çıkan yerleri çıkarır |
-| 06 | Yazılar | planlandı | Konuşmacı adı ve konu başlığı için ekran yazıları |
+| 06 | Yazılar | çalışıyor | Konuşmacı adı ve unvanı için saydam zeminli, yumuşak giriş-çıkışlı KJ (alt bant) videosu üretir |
 | 07 | Görsel Malzeme | planlandı | Araya girecek fotoğraf ve belgelerin yerleşimi |
 | 08 | Sosyal Klipler | çalışıyor | Seçilen aralığı başlık, altyazı ve kapakla dikey Reels / Shorts olarak keser |
 | 09 | Yayın | planlandı | YouTube açıklaması, bölüm zamanları, başlık önerileri |
@@ -41,6 +41,20 @@ python ses.py "video.mp4" --ses "yaka_mikrofonu.wav"
 Konuşmayı kelime kelime zamanlarıyla yazıya döker ve videonun yanına `<video>.davar.json` olarak kaydeder. Diğer iş akışları bu kaydı okur; aynı video yeniden yazıya dökülmez. İstenirse YouTube Studio'ya yüklenebilen altyazı (`.srt`) ve zaman damgalı metin (`.txt`) de yazar.
 
 Yazıya dökme bilgisayarında, Whisper modeliyle yapılır; internete bir şey gönderilmez (model ilk kullanımda bir kez indirilir). Özel adlarda ve sayılarda hata yapar; yayınlamadan önce denetle.
+
+### Metni düzeltme ve kişisel sözlük
+
+Yazıya dökme özel adları sık sık yanlış yazar. **Metni düzelt** penceresinde metin satır satır gelir; satırı dinleyip düzeltir, Enter ile sonrakine geçersin. Kaydedince altyazı ve metin dosyaları da yenilenir.
+
+Tek kelimelik düzeltmeleri Davar **kişisel sözlüğe** eklemeyi önerir. Sözlük, kullanıcı klasöründeki `.davar/sozluk.txt` dosyasıdır; her satırı `yanlış = doğru` biçimindedir:
+
+```
+tuzda = Tuzla
+Akbörse = Akköse
+top sen = TÜPSAN
+```
+
+Sözlük her okunuşta uygulanır: bir kez öğrettiğin kelime sonraki videolarda da, daha önce analiz ettiklerinde de kendiliğinden düzelir. Kesme işaretinden sonraki ekler korunur (`Akbörse'nin` → `Akköse'nin`).
 
 ## 03 Kaba Kurgu
 
@@ -119,6 +133,16 @@ Seçenekler:
 
 Kontrol çizelgesi (`<video>_iii_kontrol.fcpxml`) aynı yolla içeri alınır.
 
+## 06 Yazılar
+
+Konuşmacı adı ve unvanı için KJ (alt bant) üretir: solda vurgu şeridi, üstte ad, altta unvan. Yarım saniyede soldan açılır, sonunda solarak çıkar. Çıktı saydam zeminli bir videodur (ProRes 4444, `kj_<ad>.mov`); Resolve'da videonun üstündeki şeride sürüklersin, ayrıca efekt gerekmez.
+
+Boyut ve kare hızı seçili videodan alınır; süre, yer (sol, orta, sağ) ve vurgu rengi ayarlanabilir.
+
+```bash
+python yazilar.py "Halil Özen" "Gazeteci" --video "bolum.mp4" --renk "#E30613"
+```
+
 ## 08 Sosyal Klipler
 
 Yatay bir videodan verdiğin zaman aralığını 1080x1920 dikey video olarak keser: bulanık arka plan üstünde konuşmacı kadrajı, üstte kısa bir yazı ve iki satıra kadar başlık. İsteğe bağlı olarak konuşmadan otomatik altyazı ve 2,5 saniyelik bir giriş kapağı ekler. Ses yüksekliği sosyal medya düzeyine (-14 LUFS) getirilir.
@@ -162,7 +186,7 @@ Sessizlik ve duraksama bulmak için yapay zekâ modeli ya da internet bağlantı
 
 ## Testler
 
-Hesap kısmı (sessizlik ve duraksama bulma, aday seçimi, altyazı, ses eşleme) yapay seslerle sınanır; ffmpeg ya da video gerekmez.
+Hesap kısmı (sessizlik ve duraksama bulma, aday seçimi, altyazı, ses eşleme, sözlük, metin düzeltme, KJ çizimi) yapay verilerle sınanır; ffmpeg ya da video gerekmez.
 
 ```bash
 python -m unittest discover tests

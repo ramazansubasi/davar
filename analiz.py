@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 
 import davar
+import sozluk
 from davar import Hata
 
 SURUM = 1
@@ -45,26 +46,72 @@ def analiz_yukle(video, klasor=None):
             continue
         if kayit.get("surum") == SURUM and kayit.get("video") == _kimlik(video):
             kayit["yol"] = yol
+            # kişisel sözlük her okunuşta uygulanır; dosyadaki ham metin değişmez
+            kayit["kelimeler"], kayit["duzeltme"] = sozluk.uygula(kayit["kelimeler"])
             return kayit
     return None
 
 
-def _satirlara_bol(kelimeler, en_cok=70, en_uzun=6.0):
-    """Kelimeleri altyazı satırlarına böler; "ııı / eee" gibi sesleri atar."""
+def analiz_kaydet(kayit):
+    """Düzeltilmiş kelimeleri analiz dosyasına geri yazar."""
+    yazilacak = {k: v for k, v in kayit.items() if k not in ("yol", "duzeltme")}
+    Path(kayit["yol"]).write_text(json.dumps(yazilacak, ensure_ascii=False), encoding="utf-8")
+
+
+def satir_gruplari(kelimeler, en_cok=70, en_uzun=6.0):
+    """Kelimeleri altyazı satırlarına böler; her satır kelime sıra numaralarının listesidir.
+
+    "ııı / eee" gibi sesler hiçbir satıra girmez.
+    """
     satirlar, simdiki = [], []
-    for metin, bas, son in kelimeler:
+    for i, (metin, bas, son) in enumerate(kelimeler):
         if davar.DOLGU_SES.match(davar.sade(metin)):
             continue
         if simdiki:
-            uzunluk = sum(len(k[0]) + 1 for k in simdiki) + len(metin)
-            if (uzunluk > en_cok or bas - simdiki[-1][2] > 0.7 or son - simdiki[0][1] > en_uzun
-                    or simdiki[-1][0][-1:] in ".?!"):
+            ilk, onceki = kelimeler[simdiki[0]], kelimeler[simdiki[-1]]
+            uzunluk = sum(len(kelimeler[j][0]) + 1 for j in simdiki) + len(metin)
+            if (uzunluk > en_cok or bas - onceki[2] > 0.7 or son - ilk[1] > en_uzun
+                    or onceki[0][-1:] in ".?!"):
                 satirlar.append(simdiki)
                 simdiki = []
-        simdiki.append((metin, bas, son))
+        simdiki.append(i)
     if simdiki:
         satirlar.append(simdiki)
-    return [(s[0][1], s[-1][2], " ".join(k[0] for k in s)) for s in satirlar]
+    return satirlar
+
+
+def satiri_degistir(kelimeler, sira_listesi, yeni_metin):
+    """Bir satırın metnini değiştirir; (yeni kelime listesi, [(eski, yeni)] tek kelimelik düzeltmeler).
+
+    Kelime sayısı aynıysa zamanlar korunur. Değiştiyse satırın süresi yeni kelimelere
+    uzunluklarıyla orantılı paylaştırılır.
+    """
+    yeni = yeni_metin.split()
+    eski = [kelimeler[i] for i in sira_listesi]
+    kelimeler = [list(k) for k in kelimeler]
+    duzeltmeler = []
+    if len(yeni) == len(eski):
+        for i, y in zip(sira_listesi, yeni):
+            if davar.sade(kelimeler[i][0]) != davar.sade(y) and davar.sade(y):
+                duzeltmeler.append((sozluk._parcala(kelimeler[i][0])[0], sozluk._parcala(y)[0]))
+            kelimeler[i][0] = y
+        return kelimeler, duzeltmeler
+    bas, son = eski[0][1], eski[-1][2]
+    silinecek = set(sira_listesi)
+    kalan = [k for i, k in enumerate(kelimeler) if i not in silinecek]
+    toplam = sum(len(y) + 1 for y in yeni) or 1
+    t = bas
+    for y in yeni:
+        sure = (son - bas) * (len(y) + 1) / toplam
+        kalan.append([y, round(t, 2), round(t + sure, 2)])
+        t += sure
+    return sorted(kalan, key=lambda k: k[1]), duzeltmeler
+
+
+def _satirlara_bol(kelimeler, en_cok=70, en_uzun=6.0):
+    """Kelimeleri (başlangıç, bitiş, metin) altyazı satırlarına çevirir."""
+    return [(kelimeler[g[0]][1], kelimeler[g[-1]][2], " ".join(kelimeler[i][0] for i in g))
+            for g in satir_gruplari(kelimeler, en_cok, en_uzun)]
 
 
 def _srt_zaman(t):
@@ -134,7 +181,7 @@ def ilk_analiz(video, klasor=None, srt=False, metin=False, dil="tr", model="smal
                  "sure": round(sure, 2), "kelimeler": kelimeler}
         yol = analiz_yolu(video, klasor)
         yol.write_text(json.dumps(kayit, ensure_ascii=False), encoding="utf-8")
-        kayit["yol"] = yol
+        kayit = analiz_yukle(video, klasor)  # kişisel sözlük uygulanmış hâliyle
 
     dosyalar = [kayit["yol"]]
     hedef = Path(klasor) if klasor else video.parent
@@ -155,8 +202,11 @@ def rapor(s):
         f"Konuşma  : {davar.sure_yaz(kayit['sure'])}, {len(kayit['kelimeler'])} kelime "
         f"({dolgu} tanesi ııı / eee), model {kayit['model']}"
         + ("  — kayıtlı analiz kullanıldı" if s["hazirdi"] else ""),
-        "Not      : otomatik yazıldı; özel adları ve sayıları yayınlamadan önce denetle", "",
+        "Not      : otomatik yazıldı; özel adları ve sayıları yayınlamadan önce denetle",
     ]
+    if kayit.get("duzeltme"):
+        satir.append(f"Sözlük   : {kayit['duzeltme']} kelime kişisel sözlüğe göre düzeltildi")
+    satir.append("")
     return "\n".join(satir + [f"Yazıldı: {d}" for d in s["dosyalar"]])
 
 
