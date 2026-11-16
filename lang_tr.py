@@ -427,6 +427,15 @@ TRANSLATIONS = {
         "boşluk tuşu: işareti değiştir. Sessizlikler bu listede yok, doğrudan kesilir.",
     "There is no transcript, so no context text.": "İlk Analiz olmadığı için bağlam metni yok.",
     "Show": "Göster",
+    "Apply the Rough Cut's cuts": "Kaba Kurgu kesimlerini uygula",
+    "Leaves out the silences and hesitations it cut; the times above stay those of the video.":
+        "Kaba Kurgu'nun kestiği sessizlik ve duraksamaları klipten çıkarır; yukarıdaki zamanlar videonun zamanları olarak kalır.",
+    "the Rough Cut leaves nothing of this range.": "Kaba Kurgu bu aralıktan hiçbir şey bırakmıyor.",
+    "the Rough Cut leaves less than a second of this range.": "Kaba Kurgu bu aralıktan bir saniyeden az bırakıyor.",
+    "run Transcribe first; subtitles for a clip with the Rough Cut's cuts are made from the transcript.":
+        "önce İlk Analiz'i çalıştır; Kaba Kurgu kesimleri uygulanmış bir klibin altyazısı dökümden yapılır.",
+    "Cuts     : the Rough Cut's {n} cuts applied, {seconds:.1f} s shorter":
+        "Kesimler : Kaba Kurgu'nun {n} kesimi uygulandı, {seconds:.1f} sn kısaldı",
     "throat clearing? (listen)": "boğaz temizleme? (dinle)",
     "Find throat clearing with the sound model": "Boğaz temizlemeyi ses modeliyle bul",
     "Also the throat clearing that runs into speech, which the rule above misses. A sound "

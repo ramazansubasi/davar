@@ -1250,7 +1250,7 @@ class SocialClipsPage(Page):
                      "video. Puts the speaker's frame over a blurred background and adds a headline, "
                      "subtitles and an intro cover.")
     key = "social_clips"
-    general = ("kicker", "subtitles", "cover")
+    general = ("kicker", "subtitles", "cover", "use_cut")
     per_video = ("start", "end", "horizontal", "headline1", "headline2")
 
     def build(self, parent):
@@ -1262,6 +1262,7 @@ class SocialClipsPage(Page):
         self.headline2 = tk.StringVar()
         self.subtitles = tk.BooleanVar(value=True)
         self.cover = tk.BooleanVar(value=False)
+        self.use_cut = tk.BooleanVar(value=True)
 
         g = self.card(parent, None, _("Range and framing"))
         ttk.Label(g, text=_("From"), style="Card.TLabel").grid(row=0, column=0, sticky="w", pady=(8, 0))
@@ -1292,6 +1293,8 @@ class SocialClipsPage(Page):
                          "They cannot be corrected afterwards; read them first."))
         self.check_row(g, 1, self.cover, _("Add an intro cover"),
                        _("Puts a 2.5 second cover showing the kicker and headline at the start."))
+        self.check_row(g, 2, self.use_cut, _("Apply the Rough Cut's cuts"),
+                       _("Leaves out the silences and hesitations it cut; the times above stay those of the video."))
         for variable in (self.start, self.end, self.kicker, self.headline1, self.headline2, self.cover):
             variable.trace_add("write", lambda *_args: self.refresh_state())
 
@@ -1312,7 +1315,14 @@ class SocialClipsPage(Page):
             headline=[self.headline1.get(), self.headline2.get()], horizontal=float(self.horizontal.get()) / 100,
             subtitles=self.subtitles.get(), cover=self.cover.get(), words=saved.get("words"),
             language=saved.get("language", i18n.load_settings().get("speech_language", "tr")),
+            parts=self._cut_parts(video) if self.use_cut.get() else None,
         )
+
+    def _cut_parts(self, video):
+        """The parts of the video's Rough Cut timeline, or None when it has none."""
+        known = roughcut.read_timeline(self.app.output_folder() / (video.stem + "_cut.fcpxml"), video,
+                                       video_info(video))
+        return known["parts"] if known else None
 
     def run(self, settings, progress):
         return clips.make_clip(progress=progress, **settings)

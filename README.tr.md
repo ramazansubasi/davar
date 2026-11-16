@@ -226,6 +226,8 @@ Yatay bir videodan verdiğin zaman aralığını 1080x1920 dikey video olarak ke
 
 Altyazı için İlk Analiz'in metni kullanılır; analiz yoksa seçilen aralık o an yazıya dökülür. Altyazı videoya gömülür ve sonradan düzeltilemez; önce metni düzelt.
 
+**Kaba Kurgu'yu uygulama.** Videonun Kaba Kurgu çizelgesi varsa **Kaba Kurgu kesimlerini uygula** (varsayılan olarak açık), Kaba Kurgu'nun kestiği sessizlik, duraksama ve kırpılmış kısımları klipten de çıkarır; altyazı da buna uyar. Verdiğin zamanlar videodaki zamanlar olarak kalır; İçerik Analizi her sosyal klip adayı için bu zamanları yazar. Bir söyleşinin bir dakikalık aralığında 22 kesim klibi 11 saniye kısalttı.
+
 ## Sınırlar
 
 - Varsayılan olarak yalnızca en az 0,3 saniye süren, net duraksamalar kesilir. Daha kısaları, metin de aynı yerde duymuşsa öneri olarak gelir.

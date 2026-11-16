@@ -19,6 +19,7 @@
 - **Rough Cut: views of the review list.** The **Show** choice lists all candidates, those to be cut, those not to be cut, the uncertain ones or the non-speech sounds. It replaces the box that hid only the confident ones.
 - **Content Analysis**, a new workflow (06): an AI chat of your choice writes the YouTube texts, with no key and no fee. Davar writes a prompt holding the transcript with its times on the Rough Cut timeline and who says what; the answer pasted back becomes title suggestions, a description with chapters, tags, a summary and social clip candidates (`<video>_youtube.txt`). The chapters follow YouTube's rules.
 - **Rough Cut: throat clearing found with a sound model.** An option finds the throat clearing that runs into speech, which the silence rule misses. YAMNet (16 MB, downloaded once and checked) describes the audio and a small classifier trained on throat clearings marked by ear picks about 25 likely places an hour, offered unticked as "throat clearing? (listen)".
+- **Social Clips: the Rough Cut's cuts applied.** When the video has a Rough Cut timeline, the silences, hesitations and trimmed parts it cut are left out of the clip too, and the burned-in subtitles follow. On by default; the times given stay those of the video.
 - **Titles: a place for each name.** A line may say where its name goes (`Name | Title | right`), for people sitting on different sides; the place chosen on the page is for the lines that say nothing.
 
 ### Changed

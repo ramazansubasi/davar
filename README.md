@@ -232,6 +232,8 @@ Cuts the time range you give from a landscape video into a 1080x1920 vertical vi
 
 Subtitles use the transcript when there is one; otherwise the chosen range is transcribed on the spot. They are burned in and cannot be corrected afterwards, so fix the transcript first.
 
+**Applying the Rough Cut.** When the video has a Rough Cut timeline, **Apply the Rough Cut's cuts** (on by default) leaves the silences, hesitations and trimmed parts it cut out of the clip as well, and the subtitles follow. The times you give stay times in the video, as Content Analysis lists them for each social clip candidate. On a one-minute range of a talk, 22 cuts made the clip 11 seconds shorter.
+
 ## Limits
 
 - Only clear hesitations of at least 0.3 seconds are cut by default. Shorter ones are offered as suggestions when the transcript also heard them.

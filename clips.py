@@ -2,7 +2,9 @@
 Reels / Shorts video.
 
 Puts the speaker's frame over a blurred background, with a short kicker and a
-headline on top, optional subtitles (from the speech) and an intro cover.
+headline on top, optional subtitles (from the speech) and an intro cover. When the
+video has a Rough Cut timeline, its cuts are applied inside the range: the silences,
+hesitations and trimmed parts are left out of the clip, and the subtitles follow.
 
     python clips.py "video.mp4" 13:06 13:56 --headline "TRAFFIC IN TUZLA" --subtitles
 """
@@ -16,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
+import roughcut
 from common import NO_WINDOW, DavarError, format_time, parse_time, run, video_info
 from i18n import _
 from roughcut import is_filler_sound
@@ -150,13 +153,27 @@ def _transcribe_range(video, start, duration, language):
     return words
 
 
+def kept_in_range(parts, fps, start, end):
+    """The pieces of the range [start, end] (seconds of the video) that the Rough Cut keeps,
+    in frames counted from the start of the range. Pieces shorter than three frames are dropped."""
+    first, last = round(start * fps), round(end * fps)
+    pieces = []
+    for a, b in parts:
+        a, b = max(a, first), min(b, last)
+        if b - a >= 3:
+            pieces.append((a - first, b - first))
+    return pieces
+
+
 def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal=0.5,
-              subtitles=False, cover=False, language="tr", words=None, progress=None):
+              subtitles=False, cover=False, language="tr", words=None, parts=None, progress=None):
     """Cut the range as a vertical video; returns information about the output file.
 
     `horizontal`: where the speaker's frame is taken from, 0 (left) to 1 (right).
     `words`: the transcript's list of (text, start, end); when given, the range is
     not transcribed again for the subtitles.
+    `parts`: the parts of the Rough Cut timeline (frames of the video); when given, only
+    what they keep of the range goes into the clip.
     """
     def step(percent, text):
         if progress:
@@ -177,6 +194,18 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
     duration = end - start
     if duration < 1:
         raise DavarError(_("the end time must be at least 1 second after the start."))
+    fps = float(info["fps"])
+    pieces = kept_in_range(parts, fps, start, end) if parts else None
+    if pieces is not None:
+        if not pieces:
+            raise DavarError(_("the Rough Cut leaves nothing of this range."))
+        if len(pieces) == 1 and pieces[0][1] - pieces[0][0] >= round(duration * fps) - 1:
+            pieces = None  # nothing is cut inside the range
+    span = duration  # of the source read
+    if pieces is not None:
+        duration = sum(b - a for a, b in pieces) / fps
+        if duration < 1:
+            raise DavarError(_("the Rough Cut leaves less than a second of this range."))
     headline = [line.strip() for line in headline if line and line.strip()]
     kicker = kicker.strip()
     if cover and not (headline or kicker):
@@ -192,9 +221,19 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
 
     with tempfile.TemporaryDirectory(prefix="davar_") as temp:
         temp = Path(temp)
-        inputs = ["-ss", f"{start:.3f}", "-t", f"{duration:.3f}", "-i", str(video.resolve())]
-        chain = (
-            "[0:v]split[a][b];"
+        inputs = ["-ss", f"{start:.3f}", "-t", f"{span:.3f}", "-i", str(video.resolve())]
+        chain, picture, sound = "", "[0:v]", "[0:a]"
+        if pieces is not None:  # the Rough Cut's pieces, each trimmed exactly and joined
+            n = len(pieces)
+            chain += f"[0:v]split={n}" + "".join(f"[vs{i}]" for i in range(n)) + ";"
+            chain += f"[0:a]asplit={n}" + "".join(f"[as{i}]" for i in range(n)) + ";"
+            for i, (a, b) in enumerate(pieces):
+                chain += (f"[vs{i}]trim=start_frame={a}:end_frame={b},setpts=PTS-STARTPTS[vp{i}];"
+                          f"[as{i}]atrim=start={a / fps:.6f}:end={b / fps:.6f},asetpts=PTS-STARTPTS[ap{i}];")
+            chain += "".join(f"[vp{i}][ap{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=1[cv][ca];"
+            picture, sound = "[cv]", "[ca]"
+        chain += (
+            f"{picture}split[a][b];"
             f"[a]scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,crop={WIDTH}:{HEIGHT},"
             "boxblur=24:4,eq=brightness=-0.22[bg];"
             f"[b]crop={crop_w}:{crop_h}:{crop_x}:{crop_y},scale={WIDTH}:{FRAME_HEIGHT}[fg];"
@@ -208,18 +247,24 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
             index += 1
         subtitle_lines = 0
         if subtitles:
-            if words:  # move times of the whole video into this range
+            if words and pieces is not None:  # times on the clip, as the Rough Cut leaves them
+                shifted = [(x[0], x[1] - start, x[2] - start) for x in words if not is_filler_sound(x[0], language)]
+                words = [tuple(x[:3]) for x in roughcut.timeline_words(shifted, pieces, fps)]
+            elif words:  # move times of the whole video into this range
                 words = [(x[0], x[1] - start, x[2] - start) for x in words
                          if x[1] >= start - 0.05 and x[2] <= end + 0.05
                          and not is_filler_sound(x[0], language)]
-            else:
+            elif pieces is None:
                 step(5, _("Transcribing the speech (the model is downloaded on first use)"))
                 words = _transcribe_range(video, start, duration, language)
+            else:
+                raise DavarError(_("run Transcribe first; subtitles for a clip with the Rough Cut's cuts "
+                                   "are made from the transcript."))
             if words:
                 subtitle_lines = _write_subtitles(temp / "sub.ass", words)
                 chain += ",subtitles=sub.ass"
         chain += ",fps=30,format=yuv420p,setsar=1[v0];"
-        audio = (f"[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=in:d=0.05,"
+        audio = (f"{sound}loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=in:d=0.05,"
                  f"afade=t=out:st={duration - 0.15:.3f}:d=0.1")
         total = duration
         if cover:
@@ -257,7 +302,9 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
 
     step(100, _("Finished"))
     return {"output": output, "duration": total, "start": start, "end": end,
-            "subtitle_lines": subtitle_lines, "subtitles": subtitles, "cover": cover}
+            "subtitle_lines": subtitle_lines, "subtitles": subtitles, "cover": cover,
+            "cuts": len(pieces) - 1 + (pieces[0][0] > 0) + (pieces[-1][1] < round(span * fps)) if pieces else 0,
+            "shorter": span - duration}
 
 
 def report(r):
@@ -266,6 +313,9 @@ def report(r):
         _("Video    : {width}x{height}, {seconds:.1f} s").format(width=WIDTH, height=HEIGHT, seconds=r["duration"])
         + ("  " + _("(including the intro cover)") if r["cover"] else ""),
     ]
+    if r.get("cuts"):
+        lines.append(_("Cuts     : the Rough Cut's {n} cuts applied, {seconds:.1f} s shorter").format(
+            n=r["cuts"], seconds=r["shorter"]))
     if r["subtitles"]:
         lines.append(_("Subtitles: {n} lines (automatic; read them before publishing)").format(n=r["subtitle_lines"])
                      if r["subtitle_lines"] else _("Subtitles: no speech found, none added"))
