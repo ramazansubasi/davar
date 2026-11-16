@@ -187,7 +187,7 @@ Makes a lower third for a speaker's name and title: an accent stripe on the left
 
 The size and frame rate come from the selected video; the duration, place (left, centre, right) and accent colour can be set.
 
-Write one person per line, as `Name | Title`. When people sit on different sides, give a name its own place after the title; the lines without one use the place chosen on the page:
+Write one person per line, as `Name | Title`. When people sit on different sides, give a name its own place after the title; the lines without one use the place chosen on the page. The place is on the screen, as the viewer sees it: whoever sits on the left of the picture gets `left`.
 
 ```
 Jane Doe | Journalist | left

@@ -1056,7 +1056,8 @@ class TitlesPage(Page):
         g = self.card(parent, None, _("Speakers"),
                       _("One person per line: Name | Title. The title is optional. "
                         "A separate file is written for each person. To put one name elsewhere than "
-                        "the others, add its place (left, centre, right): Name | Title | right"))
+                        "the others, add its place on the screen, as the viewer sees it (left, centre, "
+                        "right): Name | Title | right"))
         self.people = tk.Text(g, height=4, bg=FIELD, fg=TEXT, insertbackground=TEXT, bd=0,
                               highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
                               font=("Segoe UI", 11), padx=8, pady=6, wrap="none")

@@ -181,7 +181,7 @@ Konuşmacı adı ve unvanı için KJ (alt bant) üretir: solda vurgu şeridi, ü
 
 Boyut ve kare hızı seçili videodan alınır; süre, yer (sol, orta, sağ) ve vurgu rengi ayarlanabilir.
 
-Her satıra bir kişi yazılır: `Ad Soyad | Unvan`. Konuşmacılar farklı yanlarda oturuyorsa unvandan sonra o adın konumunu yaz; konum yazılmayan satırlar sayfada seçili yeri kullanır:
+Her satıra bir kişi yazılır: `Ad Soyad | Unvan`. Konuşmacılar farklı yanlarda oturuyorsa unvandan sonra o adın konumunu yaz; konum yazılmayan satırlar sayfada seçili yeri kullanır. Konum, izleyicinin ekranda gördüğü gibidir: görüntünün solunda oturan kişiye `sol` yazılır.
 
 ```
 Ayşe Yılmaz | Gazeteci | sol

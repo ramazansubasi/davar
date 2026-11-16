@@ -420,10 +420,12 @@ TRANSLATIONS = {
     "Speakers": "Konuşmacılar",
     "One person per line: Name | Title. The title is optional. "
     "A separate file is written for each person. To put one name elsewhere than "
-    "the others, add its place (left, centre, right): Name | Title | right":
+    "the others, add its place on the screen, as the viewer sees it (left, centre, "
+    "right): Name | Title | right":
         "Her satıra bir kişi: Ad Soyad | Unvan. Unvan yazmak zorunlu değil. "
         "Her kişi için ayrı bir dosya yazılır. Bir adı diğerlerinden farklı bir yere koymak için "
-        "konumunu ekle (sol, orta, sağ): Ad Soyad | Unvan | sağ",
+        "ekrandaki konumunu, izleyicinin gördüğü gibi ekle (sol, orta, sağ): Ad Soyad | Unvan | sağ. "
+        "Ekranın solunda oturan kişi kendi sağında otursa da “sol” yazılır.",
     "Look": "Görünüm",
     "Time on screen": "Ekranda kalma",
     "Opens in half a second, fades out at the end": "Yarım saniyede açılır, sonunda solarak çıkar",
