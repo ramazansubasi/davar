@@ -15,6 +15,7 @@
   - Each page has a **Back to defaults** button, and the settings survive a change of the interface language.
 - **Titles: names placed on the timeline.** Write the speakers in the order they first speak; Davar tells the voices apart and puts each lower third on the track above the video, a few seconds after that person first speaks. The names go into the Rough Cut timeline when there is one, the log shows the words spoken at each place, a time can be given by hand (`Name | Title | 0:41`), and running Rough Cut again keeps the names.
 - **Rough Cut: move closer to the speaker.** To hide jump cuts the timeline is framed as with a second camera: closer to whoever gives a long answer, toward the side they sit on, and on everyone during quick exchanges. Inside a long answer the framing changes about every half minute, at the cut that jumps most. Who speaks comes from the transcript, who sits where from the Titles page; name titles already on the timeline stay.
+- **Rough Cut: subtitles for the cut.** With a transcript, Rough Cut also writes subtitles that follow the cut timeline (`<video>_cut.srt`); words cut away are left out and the rest move to their time on the timeline. Correcting the text rewrites them too.
 - **Titles: a place for each name.** A line may say where its name goes (`Name | Title | right`), for people sitting on different sides; the place chosen on the page is for the lines that say nothing.
 
 ### Changed
@@ -23,7 +24,8 @@
 
 ### Fixed
 
-- A time just under a whole minute was shown as 4:60.00 instead of 5:00.00.
+- A time just under a whole minute was shown as 4:60.00 instead of 5:00.00; an hour or more is now shown as 1:02:03.00.
+- A trim time past the end of the video, such as `16:40:00` (read as 16 hours), was silently ignored. It is now refused with an explanation.
 
 ## 0.2.0 - 2026-11-16
 

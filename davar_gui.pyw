@@ -33,7 +33,7 @@ import speakers  # noqa: E402
 import titles  # noqa: E402
 import transcript  # noqa: E402
 from common import (SAMPLE_RATE, VERSION, DavarError, format_time, parse_ranges,  # noqa: E402
-                    parse_time, run)
+                    parse_time, run, video_info)
 from i18n import N_, _  # noqa: E402
 
 try:
@@ -1056,6 +1056,19 @@ class TranscriptWindow(tk.Toplevel):
             if file.exists():
                 write(self.record, file)
                 rewritten.append(file.name)
+        # the subtitles of the Rough Cut timeline follow the correction too
+        timeline = folder / (stem + "_cut.fcpxml")
+        if timeline.exists():
+            try:
+                info = video_info(self.video)
+                known = roughcut.read_timeline(timeline, self.video, info)
+            except DavarError:
+                known = None
+            if known:
+                subtitles = roughcut.cut_subtitles_path(timeline)
+                roughcut.write_cut_subtitles(subtitles, self.words, known["parts"], float(info["fps"]),
+                                             self.language)
+                rewritten.append(subtitles.name)
         self.summary = _("Text corrected: {n} lines saved.").format(n=len(self.edited))
         if rewritten:
             self.summary += " " + _("Files rewritten: {files}.").format(files=", ".join(rewritten))

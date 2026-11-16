@@ -157,7 +157,9 @@ Sözlük her okunuşta uygulanır: bir kez öğrettiğin kelime sonraki videolar
 | Dolgu kelimeleri | Senin verdiğin listeden ("yani, şey, işte"), İlk Analiz'in metninde aranır. |
 | Öksürük ve diğer konuşma dışı sesler | İki sessizlik arasında duran kısa sesler. İlk Analiz varsa, karşılığında kelime yazılmamış ses konuşma dışı sayılır. |
 
-**Kırpma.** Programın başladığı ve bittiği zamanı, bir de aradan atılacak aralıkları (tekrar çekim, yayın dışı konuşma) verebilirsin: dışında kalan her şey atılır. Zamanları seçmene yardım etmek için sayfa, metnin ilk ve son satırlarını gösterebilir.
+**Kırpma.** Programın başladığı ve bittiği zamanı, bir de aradan atılacak aralıkları (tekrar çekim, yayın dışı konuşma) verebilirsin: dışında kalan her şey atılır. Zamanları seçmene yardım etmek için sayfa, metnin ilk ve son satırlarını gösterebilir. Zamanlar dakika:saniye biçiminde (`16:40.5`) ve videodaki zamanlar olarak yazılır, çizelgedeki değil; `16:40:00` gibi üç sayı saat:dakika:saniye demektir, videonun sonundan sonraki bir zaman kabul edilmez.
+
+**Kesilmiş çizelgenin altyazısı.** Videonun dökümü varsa Kaba Kurgu, kesilmiş çizelgeye uyan bir altyazı da yazar (`<video>_cut.srt`); bitmiş videoyla birlikte yüklenir. Atılan yerlerdeki sözler çıkarılır, kalanlar çizelgedeki zamanlarına kayar. Metin sonradan düzeltilirse bu dosya da yeniden yazılır. İlk Analiz'in yazdığı `.srt` kesilmemiş videoya göredir.
 
 Duraksamalar ve dolgu kelimeleri **aday** olarak bir listede gelir: zaman, tür, güven derecesi ve çevresindeki cümle. Her adayı ve kesilmiş halini dinleyebilir, işaretini değiştirebilirsin. Emin olunanlar işaretli, şüpheliler işaretsiz gelir; dolgu kelimeleri her zaman işaretsiz gelir, çünkü hangisinin gereksiz olduğuna sen karar verirsin.
 

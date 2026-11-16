@@ -187,6 +187,11 @@ TRANSLATIONS = {
     "there is too little speech to tell the speakers apart.":
         "konuşmacıları ayırt etmek için konuşma çok az.",
     "Name titles kept on the timeline: {n}": "Çizelgede korunan KJ: {n}",
+    "Subtitles for this timeline: {path}": "Bu çizelgenin altyazısı: {path}",
+    "the time {time} is past the end of the video ({length}). Write minute:second, "
+    "e.g. 16:40.5; three numbers such as 16:40:00 mean hours:minutes:seconds.":
+        "{time} zamanı videonun sonundan ({length}) sonra geliyor. Dakika:saniye biçiminde yaz, örneğin "
+        "16:40.5; 16:40:00 gibi üç sayı saat:dakika:saniye demektir.",
     "Framing     : changes {changes} times, at speaker changes and about every {every:.0f} s "
     "in long answers; closer framing ({percent:.0f}%) {share:.0f}% of the time":
         "Kadraj      : {changes} kez değişiyor; konuşmacı değişince ve uzun cevaplarda yaklaşık {every:.0f} "

@@ -163,7 +163,9 @@ The dictionary is applied every time a transcript is read: a word taught once is
 | Filler words | From your list ("you know, like"), searched in the transcript. |
 | Coughs and other non-speech sounds | Short bursts standing between silences. With a transcript, a burst no word was written for is non-speech. |
 
-**Trimming.** You can also give the time the programme starts and ends, and ranges to drop from the middle (a repeated take, an off-air exchange): everything outside is removed. The page can print the first and last lines of the transcript to help you pick the times.
+**Trimming.** You can also give the time the programme starts and ends, and ranges to drop from the middle (a repeated take, an off-air exchange): everything outside is removed. The page can print the first and last lines of the transcript to help you pick the times. Times are written as minute:second (`16:40.5`) and are times in the video, not on the timeline; three numbers such as `16:40:00` mean hours:minutes:seconds, and a time past the end of the video is refused.
+
+**Subtitles for the cut.** When the video has a transcript, Rough Cut also writes subtitles that follow the cut timeline (`<video>_cut.srt`), to upload with the finished video: words that were cut away are left out and the others move to their time on the timeline. Correcting the text later rewrites them too. The `.srt` written by Transcribe follows the uncut video.
 
 Hesitations and filler words arrive as **candidates** in a list with time, kind, confidence and the surrounding sentence. You can listen to each candidate, hear how it sounds with the cut, and change its tick. Confident ones arrive ticked, doubtful ones unticked; filler words always arrive unticked, because only you can tell which ones are superfluous.
 

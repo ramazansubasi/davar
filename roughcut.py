@@ -7,6 +7,7 @@ The original video is never modified.
 """
 
 import argparse
+import bisect
 import math
 import re
 import sys
@@ -389,6 +390,47 @@ def timeline_place(parts, frame):
     return None
 
 
+def timeline_words(words, parts, fps):
+    """The transcript's words moved onto the timeline made of `parts`.
+
+    A word stays when at least half of it, or a quarter of a second, is kept: the times of a
+    transcript are approximate, and a hesitation cut out of a word's middle must not take
+    the word with it. It runs on the timeline from the first to the last of its kept pieces.
+    """
+    bounds = [(start / fps, end / fps) for start, end in parts]
+    offsets, position = [], 0.0
+    for start, end in bounds:
+        offsets.append(position)
+        position += end - start
+    ends = [end for _start, end in bounds]
+    result = []
+    for text, start, end in sorted(words, key=lambda w: w[1]):
+        end = max(end, start + 0.01)
+        pieces = []
+        index = bisect.bisect_right(ends, start)
+        while index < len(bounds) and bounds[index][0] < end:
+            first, last = bounds[index]
+            low, high = max(start, first), min(end, last)
+            if high > low:
+                pieces.append((offsets[index] + low - first, offsets[index] + high - first))
+            index += 1
+        kept = sum(high - low for low, high in pieces)
+        if pieces and (kept >= 0.5 * (end - start) or kept >= 0.25):
+            result.append([text, round(pieces[0][0], 3), round(pieces[-1][1], 3)])
+    return result
+
+
+def write_cut_subtitles(path, words, parts, fps, language="tr"):
+    """Write subtitles (.srt) that follow the timeline made of `parts`; return the number of lines."""
+    import transcript  # imported here: transcript itself uses this module
+    return transcript.write_srt({"words": timeline_words(words, parts, fps), "language": language}, path)
+
+
+def cut_subtitles_path(timeline):
+    """Where the subtitles of a timeline go: talk_cut.fcpxml -> talk_cut.srt."""
+    return Path(timeline).with_suffix(".srt")
+
+
 def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=None):
     """Write the parts of the video one after the other as a timeline.
 
@@ -706,6 +748,11 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
 
     step(5, _("Reading video information"))
     info = video_info(video)
+    for moment in [keep_from, keep_to] + [start for start, _end in remove]:
+        if moment is not None and moment >= info["duration"]:
+            raise DavarError(_("the time {time} is past the end of the video ({length}). Write minute:second, "
+                               "e.g. 16:40.5; three numbers such as 16:40:00 mean hours:minutes:seconds.").format(
+                time=format_time(moment), length=format_time(info["duration"])))
     step(10, _("Extracting audio"))
     samples, db = audio_levels(video)
     auto, floor, speech = auto_threshold(db)
@@ -782,6 +829,10 @@ def apply(state, output=None, review=False, close_up=None, places=(), speakers=2
                                       state.get("language", "tr"))
         framed = framings(parts, fps, turns, places, close_up, info["width"], info["height"], every)
     write_fcpxml(output, video, info, parts, overlays=titles, framings=framed)
+    subtitles = None
+    if state.get("words"):  # subtitles always follow the cut, never the uncut video
+        subtitles = cut_subtitles_path(output)
+        write_cut_subtitles(subtitles, state["words"], parts, fps, state.get("language", "tr"))
 
     selected = [c for c in state["candidates"] if c["selected"]]
     review_file = None
@@ -807,7 +858,7 @@ def apply(state, output=None, review=False, close_up=None, places=(), speakers=2
         "changes": sum(a != b for a, b in zip(framed, framed[1:])) if framed else 0,
         "close_share": (sum(end - start for (start, end), f in zip(parts, framed) if f != WIDE)
                         / sum(end - start for start, end in parts)) if framed else 0.0,
-        "output": output, "review": review_file,
+        "output": output, "review": review_file, "subtitles": subtitles,
         "keep_from": state.get("keep_from"), "keep_to": state.get("keep_to"),
         "remove": state.get("remove", []),
     }
@@ -857,6 +908,8 @@ def report(r, detailed=True):
         if len(r["candidates"]) > 15:
             lines.append("  " + _("... and {n} more candidates").format(n=len(r["candidates"]) - 15))
     lines.append("\n" + _("Timeline written: {path}").format(path=r["output"]))
+    if r.get("subtitles"):
+        lines.append(_("Subtitles for this timeline: {path}").format(path=r["subtitles"]))
     if r.get("titles"):
         lines.append(_("Name titles kept on the timeline: {n}").format(n=r["titles"]))
     if r.get("close_up"):

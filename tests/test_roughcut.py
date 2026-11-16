@@ -387,6 +387,37 @@ class TimeFormat(unittest.TestCase):
         self.assertEqual(format_time(123.456), "2:03.46")
         self.assertEqual(format_time(299.996), "5:00.00", "never 4:60.00")
         self.assertEqual(format_time(0), "0:00.00")
+        self.assertEqual(format_time(60000), "16:40:00.00", "hours, as parse_time reads them")
+
+
+class CutSubtitles(unittest.TestCase):
+    # at 10 frames per second: 0-2 s kept, 2-5 s cut, 5-8 s kept
+    PARTS = [(0, 20), (50, 80)]
+    WORDS = [["Good", 0.2, 0.6], ["morning.", 0.7, 1.9], ["ııı", 2.2, 2.9], ["Sorry,", 3.0, 3.5],
+             ["again.", 3.6, 4.8], ["Welcome", 4.9, 5.6], ["all.", 5.7, 6.2], ["Late", 7.8, 8.4]]
+
+    def test_words_follow_the_cut(self):
+        moved = roughcut.timeline_words(self.WORDS, self.PARTS, 10.0)
+        self.assertEqual([w[0] for w in moved], ["Good", "morning.", "Welcome", "all."],
+                         "words whose middle was cut away are gone")
+        self.assertEqual(moved[2], ["Welcome", 2.0, 2.6], "kept inside its part: starts where the part starts")
+        self.assertEqual(moved[3], ["all.", 2.7, 3.2], "three seconds earlier than in the video")
+
+    def test_a_word_with_a_hesitation_cut_from_its_middle_stays(self):
+        parts = [(0, 10), (13, 30)]  # 1.0-1.3 s cut away
+        moved = roughcut.timeline_words([["newspaper", 0.7, 1.6], ["uh", 1.05, 1.25], ["gone", 0.98, 1.3]], parts, 10.0)
+        self.assertEqual(moved, [["newspaper", 0.7, 1.3]], "two thirds of it are heard; the cut part is not")
+
+    def test_the_subtitle_file_has_the_timeline_times(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            path = roughcut.cut_subtitles_path(Path(folder) / "talk_cut.fcpxml")
+            self.assertEqual(path.name, "talk_cut.srt")
+            self.assertEqual(roughcut.write_cut_subtitles(path, self.WORDS, self.PARTS, 10.0, "en"), 2)
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("00:00:02,000 --> 00:00:03,200\nWelcome all.", text)
+            self.assertNotIn("Sorry", text)
+
 
 if __name__ == "__main__":
     unittest.main()

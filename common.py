@@ -98,6 +98,8 @@ def parse_ranges(text):
 
 
 def format_time(seconds):
-    """123.456 -> "2:03.46"."""
+    """123.456 -> "2:03.46"; an hour or more as 1:02:03.46."""
     minutes, rest = divmod(round(seconds, 2), 60)  # rounded first, or 299.996 reads 4:60.00
+    if minutes >= 60:
+        return f"{int(minutes // 60)}:{int(minutes % 60):02d}:{rest:05.2f}"
     return f"{int(minutes)}:{rest:05.2f}"
