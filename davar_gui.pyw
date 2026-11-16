@@ -498,7 +498,7 @@ class RoughCutPage(Page):
                      "a trimmed timeline for DaVinci Resolve. The original video is not touched. "
                      "In Resolve: File → Import → Timeline…")
     key = "rough_cut"
-    general = ("silence", "hesitations", "noises", "review_file", "ask", "min_silence", "pad_before",
+    general = ("silence", "hesitations", "noises", "throat", "review_file", "ask", "min_silence", "pad_before",
                "pad_after", "min_hesitation", "fillers", "punch", "closeup", "every")
     per_video = ("keep_from", "keep_to", "remove")
 
@@ -506,6 +506,7 @@ class RoughCutPage(Page):
         self.silence = tk.BooleanVar(value=True)
         self.hesitations = tk.BooleanVar(value=True)
         self.noises = tk.BooleanVar(value=True)
+        self.throat = tk.BooleanVar(value=False)
         self.review_file = tk.BooleanVar(value=False)
         self.ask = tk.BooleanVar(value=True)
         self.min_silence = tk.DoubleVar(value=0.5)
@@ -558,6 +559,12 @@ class RoughCutPage(Page):
                   _("Coughs, throat clearing, loud breaths and clicks standing between silences. With a "
                     "transcript, a sound no word was written for is taken as non-speech; without one only "
                     "the noisy ones can be told apart."))
+
+        self.card(parent, self.throat, _("Find throat clearing with the sound model"),
+                  _("Also the throat clearing that runs into speech, which the rule above misses. A sound "
+                    "model picks about 25 likely places an hour; they arrive unticked as “throat clearing? "
+                    "(listen)”, and Show → Non-speech sounds lists them. The model (16 MB) is downloaded "
+                    "once, on first use. It was trained on one programme; it may miss some or pick others."))
 
         g = self.card(parent, None, _("Filler words"),
                       _("The speaker's verbal habits. Separate with commas: you know, like, I mean"))
@@ -666,7 +673,7 @@ class RoughCutPage(Page):
             every=float(self.every.get()),
             analysis=dict(
                 video=video, silence=self.silence.get(), hesitations=self.hesitations.get(),
-                noises=self.noises.get(),
+                noises=self.noises.get(), throat=self.throat.get(),
                 min_silence=float(self.min_silence.get()), pad_before=float(self.pad_before.get()),
                 pad_after=float(self.pad_after.get()), min_hesitation=float(self.min_hesitation.get()),
                 words=saved["words"] if saved else None, filler_words=self._filler_list(),
@@ -703,7 +710,7 @@ def shown_in(view, candidate):
             "ticked": candidate["selected"],
             "unticked": not candidate["selected"],
             "uncertain": candidate["confidence"] != "high",
-            "sounds": candidate["kind"] in ("noise", "unknown")}[view]
+            "sounds": candidate["kind"] in ("noise", "unknown", "throat")}[view]
 
 
 class ReviewWindow(tk.Toplevel):

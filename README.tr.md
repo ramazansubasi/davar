@@ -181,6 +181,10 @@ Duraksamalar ve dolgu kelimeleri **aday** olarak bir listede gelir: zaman, tür,
 
 Bunun için yapay zekâ modeli ya da internet bağlantısı gerekmez; sesin kendisinden hesaplanır. Bu yüzden Kaba Kurgu, yazıya dökülmemiş videolarda da çalışır.
 
+### Boğaz temizleme
+
+Sessizlikler arasında duran öksürük ve boğaz temizleme sesleri yukarıdaki gibi sesten bulunur. Konuşmanın ortasındaki boğaz temizleme daha zordur: seviyesi ve perdesi bir sese benzer, döküm de çoğu zaman üstüne bir kelime yazar. **Boğaz temizlemeyi ses modeliyle bul** işaretliyken Google'ın [YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet) ses modeli (Apache 2.0, 16 MB; ilk kullanımda bir kez indirilir ve parmak izi denetlenir) sesin her anını tarif eder, Davar'la gelen küçük bir ayırıcı (`models/throat_clearing.json`) da saatte yaklaşık 25 olası yer seçer. Bunlar işaretsiz olarak "boğaz temizleme? (dinle)" diye gelir; **Göster → Konuşma dışı sesler** onları listeler. Ayırıcı tek bir programla, kulakla işaretlenmiş 8 boğaz temizleme örneğiyle eğitildi; bazılarını kaçırır, başka sesleri de seçer. Neyin kesileceğine yalnızca sen karar verirsin. Bilgisayarında, faster-whisper ile gelen onnxruntime ile çalışır.
+
 ## 06 İçerik Analizi
 
 YouTube metinlerini bir yapay zekâ sohbetine yazdırır: beş başlık önerisi, açıklama, bölümler, etiketler, kısa bir özet ve sosyal klip için üç-beş aday aralık. Anahtar ve ücret gerekmez, çünkü soruyu sen sorarsın:

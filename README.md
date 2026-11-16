@@ -187,6 +187,10 @@ An "uh" rarely stops abruptly: it fades for another 0.1-0.3 seconds. The cut fol
 
 No AI model or internet connection is needed for this; it is computed from the audio. That is why Rough Cut also works on videos that have not been transcribed.
 
+### Throat clearing
+
+Coughs and throat clearing standing between silences are found from the audio as above. A throat cleared in the middle of speech is harder: its level and pitch are those of a voice, and the transcript often writes a word over it. With **Find throat clearing with the sound model** ticked, Google's [YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet) sound model (Apache 2.0, 16 MB, downloaded once on first use and checked against its fingerprint) describes every moment of the audio, and a small classifier that comes with Davar (`models/throat_clearing.json`) picks about 25 likely places an hour. They arrive unticked as "throat clearing? (listen)"; **Show → Non-speech sounds** lists them. The classifier was trained on one programme with 8 throat clearings marked by ear, so it will miss some and pick others; only you decide what is cut. It runs on your computer with onnxruntime, which comes with faster-whisper.
+
 ## 06 Content Analysis
 
 Has an AI chat write the texts for YouTube: five title suggestions, a description, chapters, tags, a short summary and three to five candidate ranges for social clips. It needs no key and costs nothing, because you do the asking:

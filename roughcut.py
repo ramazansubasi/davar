@@ -552,7 +552,7 @@ def kind_name(candidate):
              "word_end": _("stretch (end of a word)"), "between_words": _("uh / um (between words)"),
              "word": _("filler word"), "text_only": _("uh / um (transcript only)"),
              "noise": _("non-speech sound (cough, breath)"),
-             "unknown": _("sound with no word (listen)")}
+             "unknown": _("sound with no word (listen)"), "throat": _("throat clearing? (listen)")}
     return (_("short") + " " if candidate.get("short") else "") + names[candidate["kind"]]
 
 
@@ -572,13 +572,14 @@ def is_filler_sound(word, language="tr"):
 
 
 def build_candidates(hesitations, db, words=None, filler_words=(), include_word_ends=False,
-                     short_hesitations=(), language="tr", noises=()):
+                     short_hesitations=(), language="tr", noises=(), throats=()):
     """List the hesitations and filler words that may be cut, each with a confidence level.
 
     `words` is the transcript's list of (text, start, end). When given, hesitations
     found in the audio are checked against it and filler words are searched in it.
     `short_hesitations` are short sounds found with a loose measure: they become
-    candidates only where the transcript also heard an "uh / um".
+    candidates only where the transcript also heard an "uh / um". `throats` are likely
+    throat clearings found by the sound model (see sounds.py): suggestions, never ticked.
 
     Every candidate carries its surrounding sentence twice: "context" as plain text and
     "parts" as [(word, is this the thing being cut)], so an interface can highlight it.
@@ -703,11 +704,29 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
         elif voiced_share < 0.35:
             # noisy and isolated, but without a transcript it could still be a short word
             add(start, end, "noise", "medium", True)
+    # Throat clearing found by the sound model. Only a listener can tell, so nothing is ticked.
+    # A place that a candidate already covers changes that candidate's name instead; a place
+    # partly cut already keeps only the part that is left.
+    for start, end, score in throats:
+        over = [c for c in candidates if c["start"] < end and c["end"] > start]
+        cut = [c for c in over if c["selected"]]
+        confidence = "medium" if score >= 0.95 else "low"
+        if cut:
+            start = max(start, max(c["end"] for c in cut))
+            if end - start >= 0.15 and not any(c["start"] < end and c["end"] > start for c in cut):
+                add(start, end, "throat", confidence, False)
+        elif over:
+            c = over[0]
+            c["start"], c["end"] = min(c["start"], start), max(c["end"], end)
+            c["kind"], c["confidence"] = "throat", confidence
+            c["context"], c["parts"] = context(c["start"], c["end"])
+        else:
+            add(start, end, "throat", confidence, False)
     # Last check against the transcript: a sound candidate that swallows a transcribed word is
     # either a mistake of ours or a mistimed word. It stays in the list, unticked, for the listener.
     if words:
         for c in candidates:
-            if c["kind"] in ("word", "noise", "unknown", "text_only") or not c["selected"]:
+            if c["kind"] in ("word", "noise", "unknown", "text_only", "throat") or not c["selected"]:
                 continue
             for w in words:
                 if (c["start"] + 0.05 < (w[1] + w[2]) / 2 < c["end"] - 0.05
@@ -722,7 +741,7 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
 def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0.10, pad_after=0.15,
             threshold=None, min_hesitation=0.30, include_word_ends=False, words=None,
             filler_words=(), language="tr", keep_from=None, keep_to=None, remove=(), noises=True,
-            progress=None):
+            throat=False, progress=None):
     """Analyse the video and return a state holding the silence threshold and the cut candidates.
 
     Writes nothing. The result goes to `apply`; in between, the "selected" flags of
@@ -771,8 +790,19 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
         if noises:
             step(85, _("Looking for non-speech sounds"))
             bursts = find_noises(features, used)
+    throats = []
+    if throat:  # with the sound model; downloaded on first use
+        import sounds
+
+        def usable(moment):  # a place that is trimmed away anyway is not offered
+            return ((keep_from is None or moment >= keep_from) and (keep_to is None or moment < keep_to)
+                    and not any(start <= moment < end for start, end in remove))
+        throats = sounds.find_throat_clearing(
+            samples, db, used, words or (), lambda text: is_filler_sound(text, language), usable,
+            lambda share, text: step(86 + 4 * share, text))
     step(90, _("Preparing candidates"))
-    candidates = build_candidates(found, db, words, filler_words, include_word_ends, short, language, bursts)
+    candidates = build_candidates(found, db, words, filler_words, include_word_ends, short, language, bursts,
+                                  throats)
     step(100, _("Analysis finished"))
     return {
         "video": video, "info": info, "fps": float(info["fps"]), "db": db, "samples": samples,

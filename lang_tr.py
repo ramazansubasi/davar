@@ -427,6 +427,23 @@ TRANSLATIONS = {
         "boşluk tuşu: işareti değiştir. Sessizlikler bu listede yok, doğrudan kesilir.",
     "There is no transcript, so no context text.": "İlk Analiz olmadığı için bağlam metni yok.",
     "Show": "Göster",
+    "throat clearing? (listen)": "boğaz temizleme? (dinle)",
+    "Find throat clearing with the sound model": "Boğaz temizlemeyi ses modeliyle bul",
+    "Also the throat clearing that runs into speech, which the rule above misses. A sound "
+    "model picks about 25 likely places an hour; they arrive unticked as “throat clearing? "
+    "(listen)”, and Show → Non-speech sounds lists them. The model (16 MB) is downloaded "
+    "once, on first use. It was trained on one programme; it may miss some or pick others.":
+        "Yukarıdaki kuralın kaçırdığı, konuşmaya yapışık boğaz temizlemeleri de bulur. Bir ses modeli "
+        "saatte yaklaşık 25 olası yer seçer; bunlar işaretsiz olarak “boğaz temizleme? (dinle)” diye gelir, "
+        "Göster → Konuşma dışı sesler onları listeler. Model (16 MB) ilk kullanımda bir kez indirilir. "
+        "Tek bir programla eğitildi; bazılarını kaçırabilir, başka sesleri seçebilir.",
+    "the sound model could not be downloaded: {message}": "ses modeli indirilemedi: {message}",
+    "the downloaded sound model is not the expected file, so it was not used.":
+        "indirilen ses modeli beklenen dosya değil; bu yüzden kullanılmadı.",
+    "the sound model needs onnxruntime. Install it with: pip install onnxruntime":
+        "ses modeli için onnxruntime gerekir. Kurmak için: pip install onnxruntime",
+    "Downloading the sound model (16 MB, only once)": "Ses modeli indiriliyor (16 MB, yalnızca bir kez)",
+    "Listening for throat clearing": "Boğaz temizleme sesleri dinleniyor",
     "Has an AI chat of your choice write the YouTube texts: title suggestions, a description "
     "with chapters, tags, a summary and social clip candidates. No key and no fee: you paste "
     "Davar's prompt into the chat and its answer back here.":
