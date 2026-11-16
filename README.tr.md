@@ -161,6 +161,8 @@ Sözlük her okunuşta uygulanır: bir kez öğrettiğin kelime sonraki videolar
 
 Duraksamalar ve dolgu kelimeleri **aday** olarak bir listede gelir: zaman, tür, güven derecesi ve çevresindeki cümle. Her adayı ve kesilmiş halini dinleyebilir, işaretini değiştirebilirsin. Emin olunanlar işaretli, şüpheliler işaretsiz gelir; dolgu kelimeleri her zaman işaretsiz gelir, çünkü hangisinin gereksiz olduğuna sen karar verirsin.
 
+**Sıçramaları gizleme.** Tek kamerada her kesim konuşanları sıçratır. **Sıçramaları gizle** işaretliyken görüntü kesimlerde tam kadraj ile yakın kadraj (varsayılan %115) arasında değişir; kesim kamera değişimi gibi görünür. Bir kadraj en az **en kısa çekim** süresi (varsayılan 4 saniye) kadar kalır; daha önce gelen kesimler kadrajını korur ve biraz sıçramaya devam eder. 51 dakikalık bir söyleşide 757 kesimin yaklaşık yarısında kadraj değişti. Çizelgeyi Resolve'a alırken **Use sizing information** işaretli kalsın; yoksa yakın kadrajlar kaybolur. Yazılar'ın yerleştirdiği isim bantları yerinde kalır.
+
 ### Sessizlik ve duraksama nasıl bulunuyor
 
 **Sessizlik.** Ses 10 milisaniyelik dilimlere bölünür ve her dilimin seviyesi ölçülür. Eşik, arka plan gürültüsü ile konuşma seviyesinin arasına otomatik yerleştirilir. Eşiğin altında yeterince uzun kalan aralıklar, kelimelerin iki yanında küçük bir pay bırakılarak kesilir.

@@ -294,6 +294,25 @@ def remaining_parts(cuts, total):
     return parts
 
 
+# --- hiding jump cuts ------------------------------------------------------------
+# With one camera every cut makes the people jump. Changing the framing at a cut, from
+# the whole picture to a closer one and back, makes it look like a second camera.
+PUNCH_IN = 1.15  # the closer framing, as a scale of the picture
+SHORTEST_SHOT = 4.0  # seconds a framing is held at least; cuts inside that time keep it
+
+
+def framings(parts, fps, zoom=PUNCH_IN, shortest=SHORTEST_SHOT):
+    """The scale of each part: the timeline starts on the whole picture, and at the first cut
+    after a framing has been held for `shortest` seconds it changes to the other one."""
+    scales, current, held = [], 1.0, 0.0
+    for index, (start, end) in enumerate(parts):
+        if index and held >= shortest:
+            current, held = (zoom if current == 1.0 else 1.0), 0.0
+        scales.append(current)
+        held += (end - start) / fps
+    return scales
+
+
 def timeline_place(parts, frame):
     """Where a frame of the video lands on the timeline made of `parts`:
     (index of the part, the frame it is shown from, its frame on the timeline).
@@ -308,12 +327,13 @@ def timeline_place(parts, frame):
     return None
 
 
-def write_fcpxml(output, video, info, parts, label="cut", overlays=()):
+def write_fcpxml(output, video, info, parts, label="cut", overlays=(), zooms=None):
     """Write the parts of the video one after the other as a timeline.
 
     `overlays` are clips for the track above, such as name titles: dicts with "path",
     "at" (the frame of the video they start on) and "frames" (their length). They must
-    have the size and frame rate of the video.
+    have the size and frame rate of the video. `zooms` is a scale for each part (see
+    framings); a part with a scale other than 1 is enlarged around the centre.
     """
     fps = info["fps"]
 
@@ -361,7 +381,11 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=()):
     for index, (start, end) in enumerate(parts):
         clip = (f'            <asset-clip name={quoteattr(name)} offset="{t(position)}" '
                 f'start="{t(start)}" duration="{t(end - start)}" tcFormat="NDF" ref="r2"')
-        lines += [clip + ">", *above[index], "            </asset-clip>"] if index in above else [clip + "/>"]
+        inside = list(above.get(index, []))
+        scale = zooms[index] if zooms else 1.0
+        if abs(scale - 1.0) > 1e-6:  # the picture's own adjustments come before the clips above it
+            inside.insert(0, f'              <adjust-transform scale="{scale:g} {scale:g}"/>')
+        lines += [clip + ">", *inside, "            </asset-clip>"] if inside else [clip + "/>"]
         position += end - start
     lines += ["          </spine>", "        </sequence>", "      </project>",
               "    </event>", "  </library>", "</fcpxml>", ""]
@@ -369,8 +393,9 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=()):
 
 
 def read_timeline(path, video, info):
-    """Read back a timeline written by write_fcpxml for this video: (parts, overlays).
-    None if the file is not there, is not such a timeline, or is of another video or frame rate."""
+    """Read back a timeline written by write_fcpxml for this video: a dict with its "parts",
+    "overlays" and "zooms" (as write_fcpxml takes them). None if the file is not there, is not
+    such a timeline, or is of another video or frame rate."""
     fps = info["fps"]
 
     def frames(text):
@@ -384,16 +409,18 @@ def read_timeline(path, video, info):
         sources = {asset.get("id"): asset.find("media-rep").get("src") for asset in root.iter("asset")}
         if sources.get("r2") != Path(video).resolve().as_uri() or frames(root.find(".//format").get("frameDuration")) != 1:
             return None
-        parts, overlays = [], []
+        parts, overlays, zooms = [], [], []
         for clip in root.find(".//spine").findall("asset-clip"):
             start = frames(clip.get("start"))
             parts.append((start, start + frames(clip.get("duration"))))
+            transform = clip.find("adjust-transform")
+            zooms.append(float(transform.get("scale", "1").split()[0]) if transform is not None else 1.0)
             for upper in clip.findall("asset-clip"):
                 overlays.append({"path": Path(url2pathname(unquote(urlparse(sources[upper.get("ref")]).path))),
                                  "at": frames(upper.get("offset")), "frames": frames(upper.get("duration"))})
     except (OSError, ElementTree.ParseError, AttributeError, KeyError, TypeError, ValueError, ZeroDivisionError):
         return None
-    return (parts, overlays) if parts else None
+    return {"parts": parts, "overlays": overlays, "zooms": zooms} if parts else None
 
 
 # --- candidates ---------------------------------------------------------------
@@ -661,8 +688,9 @@ def cut_plan(state):
     return cuts, remaining_parts(cuts, state["info"]["frames"])
 
 
-def apply(state, output=None, review=False):
-    """Write the timeline file(s) and return a summary of the result."""
+def apply(state, output=None, review=False, punch_in=None, shortest_shot=SHORTEST_SHOT):
+    """Write the timeline file(s) and return a summary of the result. With `punch_in` (a scale
+    such as 1.15) the framing changes at cuts, to hide the jumps (see framings)."""
     video, info, fps = state["video"], state["info"], state["fps"]
     cuts, parts = cut_plan(state)
     if not parts:
@@ -670,8 +698,9 @@ def apply(state, output=None, review=False):
     output = Path(output) if output else video.with_name(video.stem + "_cut.fcpxml")
     # name titles that Titles placed on an earlier cut of this video stay on the new one
     earlier = read_timeline(output, video, info)
-    titles = [o for o in earlier[1] if o["path"].is_file()] if earlier else []
-    write_fcpxml(output, video, info, parts, overlays=titles)
+    titles = [o for o in earlier["overlays"] if o["path"].is_file()] if earlier else []
+    zooms = framings(parts, fps, punch_in, shortest_shot) if punch_in else None
+    write_fcpxml(output, video, info, parts, overlays=titles, zooms=zooms)
 
     selected = [c for c in state["candidates"] if c["selected"]]
     review_file = None
@@ -693,6 +722,7 @@ def apply(state, output=None, review=False):
         "threshold": state["threshold"], "manual_threshold": state["manual_threshold"],
         "cuts": cuts, "candidates": state["candidates"], "selected": selected,
         "removed": sum(end - start for start, end in cuts) / fps, "titles": len(titles),
+        "punch_in": punch_in, "changes": sum(a != b for a, b in zip(zooms, zooms[1:])) if zooms else 0,
         "output": output, "review": review_file,
         "keep_from": state.get("keep_from"), "keep_to": state.get("keep_to"),
         "remove": state.get("remove", []),
@@ -745,6 +775,12 @@ def report(r, detailed=True):
     lines.append("\n" + _("Timeline written: {path}").format(path=r["output"]))
     if r.get("titles"):
         lines.append(_("Name titles kept on the timeline: {n}").format(n=r["titles"]))
+    if r.get("punch_in"):
+        lines.append(_("Jump cuts   : the framing changes at {changes} of {cuts} cuts (closer framing "
+                       "{percent:.0f}%)").format(changes=r["changes"], cuts=max(len(r["cuts"]) - 1, 0),
+                                                percent=r["punch_in"] * 100))
+        lines.append(_("In Resolve, keep “Use sizing information” ticked when importing, or the "
+                       "closer framings are lost."))
     if r["review"]:
         lines.append(_("Review timeline written: {path}").format(path=r["review"]))
     return "\n".join(lines)
@@ -781,6 +817,11 @@ def main():
                    help='ranges to drop from the middle, comma separated (e.g. "50:46-51:03")')
     p.add_argument("--review", action="store_true",
                    help="also write a timeline with only the cut hesitations, for checking (<name>_fillers.fcpxml)")
+    p.add_argument("--punch-in", type=float, default=None,
+                   help="hide jump cuts by changing to a closer framing at cuts; how close, in percent "
+                        "(e.g. 115)")
+    p.add_argument("--shortest-shot", type=float, default=SHORTEST_SHOT,
+                   help="seconds a framing is held at least (default 4)")
     p.add_argument("--output", type=Path, default=None,
                    help="output file (default: <name>_cut.fcpxml next to the video)")
     a = p.parse_args()
@@ -799,7 +840,8 @@ def main():
         for c in state["candidates"]:  # nobody to ask on the command line: requested words are cut
             if c["kind"] == "word":
                 c["selected"] = True
-        result = apply(state, output=a.output, review=a.review)
+        result = apply(state, output=a.output, review=a.review,
+                       punch_in=a.punch_in / 100 if a.punch_in else None, shortest_shot=a.shortest_shot)
     except DavarError as e:
         sys.exit(_("ERROR: {message}").format(message=e))
     if saved:

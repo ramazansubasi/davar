@@ -167,6 +167,8 @@ The dictionary is applied every time a transcript is read: a word taught once is
 
 Hesitations and filler words arrive as **candidates** in a list with time, kind, confidence and the surrounding sentence. You can listen to each candidate, hear how it sounds with the cut, and change its tick. Confident ones arrive ticked, doubtful ones unticked; filler words always arrive unticked, because only you can tell which ones are superfluous.
 
+**Hiding jump cuts.** With one camera every cut makes the people jump. With **Hide jump cuts** ticked, the picture changes at cuts between the whole frame and a closer framing (115% by default), so the cut looks like a change of camera. A framing is held for at least the **shortest shot** (4 seconds by default); cuts that come sooner keep their framing and still jump a little. On a 51-minute interview about half of the 757 cuts changed framing. In Resolve keep **Use sizing information** ticked when importing the timeline, or the closer framings are lost. Name titles placed by Titles stay where they are.
+
 ### How silences and hesitations are found
 
 **Silence.** The audio is split into 10 millisecond slices and each slice's level is measured. The threshold is placed between the background noise and the speech level. Stretches that stay below it long enough are cut, leaving a little padding around words.

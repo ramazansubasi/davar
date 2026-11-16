@@ -257,7 +257,7 @@ def place_on_timeline(video, people, items, folder=None, words=None, language="t
     fps = float(info["fps"])
     cut = target / (video.stem + "_cut.fcpxml")
     known = roughcut.read_timeline(cut, video, info)
-    parts = known[0] if known else [(0, info["frames"])]
+    parts = known["parts"] if known else [(0, info["frames"])]
     output, label = (cut, "cut") if known else (target / (video.stem + "_titles.fcpxml"), "titles")
     start, end = parts[0][0] / fps, parts[-1][1] / fps
     for person in people:
@@ -284,7 +284,8 @@ def place_on_timeline(video, people, items, folder=None, words=None, language="t
         said = [word for word, word_start, _word_end in words or [] if word_start >= place[1] / fps - 0.3][:9]
         placed.append({"name": person["name"], "video": place[1] / fps, "timeline": place[2] / fps,
                        "said": " ".join(said)})
-    roughcut.write_fcpxml(output, video, info, parts, label=label, overlays=overlays)
+    roughcut.write_fcpxml(output, video, info, parts, label=label, overlays=overlays,
+                          zooms=known["zooms"] if known else None)  # the framings of the cut stay
     return {"timeline": output, "in_cut": bool(known), "placed": placed, "missed": missed}
 
 

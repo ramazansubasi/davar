@@ -187,6 +187,23 @@ TRANSLATIONS = {
     "there is too little speech to tell the speakers apart.":
         "konuşmacıları ayırt etmek için konuşma çok az.",
     "Name titles kept on the timeline: {n}": "Çizelgede korunan KJ: {n}",
+    "Jump cuts   : the framing changes at {changes} of {cuts} cuts (closer framing "
+    "{percent:.0f}%)":
+        "Sıçramalar  : {cuts} kesimin {changes} tanesinde kadraj değişiyor (yakın kadraj %{percent:.0f})",
+    "In Resolve, keep “Use sizing information” ticked when importing, or the "
+    "closer framings are lost.":
+        "Resolve'da içeri alırken “Use sizing information” işaretli kalsın; yoksa yakın kadrajlar kaybolur.",
+    "Hide jump cuts": "Sıçramaları gizle",
+    "With one camera every cut makes the people jump. At some cuts the picture changes "
+    "to a closer framing and back, so that it looks like a second camera. Cuts closer "
+    "together than the shortest shot keep their framing.":
+        "Tek kamerada her kesim konuşanları sıçratır. Bazı kesimlerde görüntü yakın bir kadraja geçip "
+        "geri döner; böylece ikinci bir kamera varmış gibi görünür. En kısa çekimden daha sık gelen "
+        "kesimler kadrajını korur.",
+    "Closer framing": "Yakın kadraj",
+    "percent of the picture; 115 is a usual choice": "görüntünün yüzdesi; 115 yaygın bir seçim",
+    "Shortest shot": "En kısa çekim",
+    "seconds a framing is held at least": "bir kadrajın en az kaç saniye kalacağı",
 
     # --- interface: frame -----------------------------------------------------
     "Pre-edit helper for DaVinci Resolve": "DaVinci Resolve için kurgu öncesi yardımcı",

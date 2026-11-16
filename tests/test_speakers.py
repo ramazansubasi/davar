@@ -142,17 +142,32 @@ class Timeline(unittest.TestCase):
             self.assertEqual(text.count("<asset id="), 2, "the video and one title file, however often it is used")
             self.assertEqual(text.count('lane="1"'), 2, "the one after the end of the timeline is left out")
             self.assertIn('lane="1" offset="281/30s" start="0s" duration="180/30s"', text)
-            parts, found = roughcut.read_timeline(timeline, video, INFO)
-            self.assertEqual(parts, self.PARTS)
-            self.assertEqual(found, [{"path": title.resolve(), "at": 281, "frames": 180},
-                                     {"path": title.resolve(), "at": 1156, "frames": 180}])
+            back = roughcut.read_timeline(timeline, video, INFO)
+            self.assertEqual(back["parts"], self.PARTS)
+            self.assertEqual(back["overlays"], [{"path": title.resolve(), "at": 281, "frames": 180},
+                                                {"path": title.resolve(), "at": 1156, "frames": 180}])
 
     def test_a_timeline_without_titles_is_written_as_before(self):
         with tempfile.TemporaryDirectory() as folder:
             video, timeline = Path(folder) / "talk.mp4", Path(folder) / "cut.fcpxml"
             roughcut.write_fcpxml(timeline, video, INFO, self.PARTS)
             self.assertNotIn("lane", timeline.read_text(encoding="utf-8"))
-            self.assertEqual(roughcut.read_timeline(timeline, video, INFO), (self.PARTS, []))
+            self.assertEqual(roughcut.read_timeline(timeline, video, INFO),
+                             {"parts": self.PARTS, "overlays": [], "zooms": [1.0, 1.0, 1.0]})
+
+    def test_closer_framings_are_written_before_the_titles_and_read_back(self):
+        with tempfile.TemporaryDirectory() as folder:
+            video, title, timeline = (Path(folder) / name for name in ("talk.mp4", "lowerthird_a.mov", "cut.fcpxml"))
+            roughcut.write_fcpxml(timeline, video, INFO, self.PARTS, zooms=[1.0, 1.15, 1.15],
+                                  overlays=[{"path": title, "at": 1200, "frames": 180}])
+            text = timeline.read_text(encoding="utf-8")
+            self.assertEqual(text.count('<adjust-transform scale="1.15 1.15"/>'), 2)
+            self.assertLess(text.index("adjust-transform", text.index('start="1156/30s"')), text.index('lane="1"'),
+                            "the picture's own adjustment comes before the clip above it")
+            back = roughcut.read_timeline(timeline, video, INFO)
+            self.assertEqual(back["zooms"], [1.0, 1.15, 1.15])
+            self.assertEqual(len(back["overlays"]), 1)
+
 
     def test_another_videos_timeline_is_not_taken(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -163,6 +178,26 @@ class Timeline(unittest.TestCase):
             self.assertIsNone(roughcut.read_timeline(Path(folder) / "none.fcpxml", video, INFO))
             timeline.write_text("not a timeline", encoding="utf-8")
             self.assertIsNone(roughcut.read_timeline(timeline, video, INFO))
+
+
+class Framings(unittest.TestCase):
+    def test_the_framing_changes_at_the_first_cut_after_the_shortest_shot(self):
+        # parts of 2, 3, 1, 5, 1 and 1 seconds at 30 frames per second
+        lengths = [2, 3, 1, 5, 1, 1]
+        parts, frame = [], 0
+        for seconds in lengths:
+            parts.append((frame, frame + seconds * 30))
+            frame += seconds * 30 + 15  # half a second cut away each time
+        self.assertEqual(roughcut.framings(parts, 30.0, 1.15, 4.0), [1.0, 1.0, 1.15, 1.15, 1.0, 1.0],
+                         "wide for 5 s, close for 6 s, then wide again; cuts in between keep the framing")
+
+    def test_one_part_or_none(self):
+        self.assertEqual(roughcut.framings([(0, 300)], 30.0), [1.0])
+        self.assertEqual(roughcut.framings([], 30.0), [])
+
+    def test_every_cut_changes_when_the_shots_are_long(self):
+        parts = [(0, 150), (160, 310), (320, 470)]
+        self.assertEqual(roughcut.framings(parts, 30.0, 1.2, 4.0), [1.0, 1.2, 1.0])
 
 
 if __name__ == "__main__":

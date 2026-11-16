@@ -497,7 +497,7 @@ class RoughCutPage(Page):
                      "In Resolve: File → Import → Timeline…")
     key = "rough_cut"
     general = ("silence", "hesitations", "noises", "review_file", "ask", "min_silence", "pad_before",
-               "pad_after", "min_hesitation", "fillers")
+               "pad_after", "min_hesitation", "fillers", "punch", "zoom", "shortest_shot")
     per_video = ("keep_from", "keep_to", "remove")
 
     def build(self, parent):
@@ -511,6 +511,9 @@ class RoughCutPage(Page):
         self.pad_after = tk.DoubleVar(value=0.15)
         self.min_hesitation = tk.DoubleVar(value=0.30)
         self.fillers = tk.StringVar()
+        self.punch = tk.BooleanVar(value=False)
+        self.zoom = tk.DoubleVar(value=round(roughcut.PUNCH_IN * 100))
+        self.shortest_shot = tk.DoubleVar(value=roughcut.SHORTEST_SHOT)
         self.keep_from = tk.StringVar()
         self.keep_to = tk.StringVar()
         self.remove = tk.StringVar()
@@ -559,6 +562,20 @@ class RoughCutPage(Page):
         ttk.Entry(g, textvariable=self.fillers).pack(fill="x", pady=(8, 0))
         self.transcript_status = ttk.Label(g, text="", style="CardMuted.TLabel", wraplength=700, justify="left")
         self.transcript_status.pack(anchor="w", pady=(6, 0))
+
+        g = self.card(parent, self.punch, _("Hide jump cuts"),
+                      _("With one camera every cut makes the people jump. At some cuts the picture changes "
+                        "to a closer framing and back, so that it looks like a second camera. Cuts closer "
+                        "together than the shortest shot keep their framing."))
+        for row, (label, variable, low, high, step, hint) in enumerate((
+                (_("Closer framing"), self.zoom, 105, 130, 1, _("percent of the picture; 115 is a usual choice")),
+                (_("Shortest shot"), self.shortest_shot, 2, 20, 0.5, _("seconds a framing is held at least")))):
+            ttk.Label(g, text=label, style="Card.TLabel").grid(row=row, column=0, sticky="w", padx=(0, 12), pady=(8, 0))
+            ttk.Spinbox(g, textvariable=variable, from_=low, to=high, increment=step, width=6).grid(
+                row=row, column=1, sticky="w", pady=(8, 0))
+            ttk.Label(g, text=hint, style="CardMuted.TLabel").grid(row=row, column=2, sticky="w", padx=(14, 0),
+                                                                   pady=(8, 0))
+        self.punch.set(False)  # let the card grey out its boxes
 
         g = self.card(parent, None, _("Applying"))
         ttk.Checkbutton(g, text=_("Show me the candidates before cutting"), variable=self.ask,
@@ -616,6 +633,8 @@ class RoughCutPage(Page):
         return dict(
             output=self.app.output_folder() / (video.stem + "_cut.fcpxml"),
             review=self.review_file.get(), ask=self.ask.get(),
+            punch_in=float(self.zoom.get()) / 100 if self.punch.get() else None,
+            shortest_shot=float(self.shortest_shot.get()),
             analysis=dict(
                 video=video, silence=self.silence.get(), hesitations=self.hesitations.get(),
                 noises=self.noises.get(),
@@ -636,7 +655,8 @@ class RoughCutPage(Page):
         if settings["ask"] and state["candidates"]:
             if not ReviewWindow(self.app, state).approved:
                 return None
-        return roughcut.apply(state, output=settings["output"], review=settings["review"])
+        return roughcut.apply(state, output=settings["output"], review=settings["review"],
+                              punch_in=settings["punch_in"], shortest_shot=settings["shortest_shot"])
 
     def result_text(self, result):
         return roughcut.report(result, detailed=False)
