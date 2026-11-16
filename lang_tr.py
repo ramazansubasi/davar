@@ -156,8 +156,12 @@ TRANSLATIONS = {
         "KJ       : {n} adet, {width}x{height}, {seconds:.0f} sn, saydam zeminli (ProRes 4444)",
     "How to use : in Resolve drag it onto the track above the video; the entrance and exit are built in":
         "Kullanım : Resolve'da videonun üstündeki şeride sürükle; giriş ve çıkış hazır gelir",
-    "too many “|” in the line “{line}”. It reads: Name | Title | time":
-        "“{line}” satırında fazla “|” var. Biçimi şöyle: Ad Soyad | Unvan | zaman",
+    "too many “|” in the line “{line}”. It reads: Name | Title | place | time":
+        "“{line}” satırında fazla “|” var. Biçimi şöyle: Ad Soyad | Unvan | konum | zaman",
+    "could not read “{field}” in the line “{line}”. After the title comes a place "
+    "(left, centre, right) or a time (0:41), each once.":
+        "“{line}” satırındaki “{field}” okunamadı. Unvandan sonra konum (sol, orta, sağ) ya da zaman "
+        "(0:41) gelir; her biri bir kez yazılır.",
     "the time given for {name} is outside the video.": "{name} için verilen zaman videonun dışında.",
     "run Transcribe first, or give each name its time: Name | Title | 0:41":
         "önce İlk Analiz'i çalıştır ya da her ada zamanını ver: Ad Soyad | Unvan | 0:41",
@@ -415,9 +419,11 @@ TRANSLATIONS = {
         "koyabilir; istersen Resolve'da videonun üstündeki şeride kendin sürüklersin.",
     "Speakers": "Konuşmacılar",
     "One person per line: Name | Title. The title is optional. "
-    "A separate file is written for each person.":
+    "A separate file is written for each person. To put one name elsewhere than "
+    "the others, add its place (left, centre, right): Name | Title | right":
         "Her satıra bir kişi: Ad Soyad | Unvan. Unvan yazmak zorunlu değil. "
-        "Her kişi için ayrı bir dosya yazılır.",
+        "Her kişi için ayrı bir dosya yazılır. Bir adı diğerlerinden farklı bir yere koymak için "
+        "konumunu ekle (sol, orta, sağ): Ad Soyad | Unvan | sağ",
     "Look": "Görünüm",
     "Time on screen": "Ekranda kalma",
     "Opens in half a second, fades out at the end": "Yarım saniyede açılır, sonunda solarak çıkar",
@@ -433,11 +439,12 @@ TRANSLATIONS = {
     "Write the speakers in the order they first speak. Davar listens for who speaks when "
     "and puts each name on the track above the video, a few seconds after that person "
     "first speaks. It needs the transcript. To choose the moment yourself, add the time "
-    "in the video as a third field: Name | Title | 0:41":
+    "in the video to the line: Name | Title | 0:41":
         "Konuşmacıları ilk konuştukları sırayla yaz. Davar kimin ne zaman konuştuğunu sesten bulur ve her "
         "adı, o kişi ilk konuşmaya başladıktan birkaç saniye sonra videonun üstündeki şeride koyar. "
-        "Bunun için döküm gerekir. Anı kendin seçmek istersen videodaki zamanı üçüncü alan olarak ekle: "
+        "Bunun için döküm gerekir. Anı kendin seçmek istersen videodaki zamanı satıra ekle: "
         "Ad Soyad | Unvan | 0:41",
+    "For the names whose line gives no place of its own": "Satırında konum yazmayan adlar için",
     "No video selected: the names are made but not placed.":
         "Video seçili değil: KJ'ler üretilir ama yerleştirilmez.",
     "They will be added to the Rough Cut timeline of this video: {name}":

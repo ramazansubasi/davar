@@ -181,6 +181,13 @@ Konuşmacı adı ve unvanı için KJ (alt bant) üretir: solda vurgu şeridi, ü
 
 Boyut ve kare hızı seçili videodan alınır; süre, yer (sol, orta, sağ) ve vurgu rengi ayarlanabilir.
 
+Her satıra bir kişi yazılır: `Ad Soyad | Unvan`. Konuşmacılar farklı yanlarda oturuyorsa unvandan sonra o adın konumunu yaz; konum yazılmayan satırlar sayfada seçili yeri kullanır:
+
+```
+Ayşe Yılmaz | Gazeteci | sol
+Ali Demir | Belediye Başkanı | sağ
+```
+
 ### Adları zaman çizelgesine yerleştirme
 
 **Zaman çizelgesine yerleştir** işaretliyken Davar her adı, o kişi ilk konuşmaya başladıktan birkaç saniye sonra videonun üstündeki şeride de koyar:
@@ -188,7 +195,7 @@ Boyut ve kare hızı seçili videodan alınır; süre, yer (sol, orta, sağ) ve 
 - Konuşmacıları **ilk konuştukları sırayla** yaz. Davar sesleri renginden ayırt eder; ilk satıra ilk duyulan sesi, ikinci satıra sonraki yeni sesi verir. Bunun için döküm gerekir.
 - Adlar, varsa videonun Kaba Kurgu çizelgesine (`<video>_cut.fcpxml`) eklenir; çizelgeyi Resolve'a yeniden al. Yoksa videonun tamamını içeren bir çizelge yazılır (`<video>_titles.fcpxml`).
 - Kayıt bölümü her ad için seçilen anı ve orada söylenen sözleri gösterir; adların yer değiştirdiği böylece hemen görülür. İkisi yer değiştirmişse satırların sırasını değiştir.
-- Anı kendin seçmek için videodaki zamanı üçüncü alan olarak ekle: `Ayşe Yılmaz | Gazeteci | 0:41`.
+- Anı kendin seçmek için videodaki zamanı satıra ekle: `Ayşe Yılmaz | Gazeteci | 0:41`. Konum ve zaman birlikte, istediğin sırayla yazılabilir: `Ali Demir | Belediye Başkanı | sağ | 0:41`.
 - Kaba Kurgu yeniden çalıştırıldığında adlar yerinde kalır.
 
 Sesler bilgisayarında, ek bir indirme olmadan ayırt edilir. Sesleri birbirinden belirgin biçimde farklı birkaç kişi için yapılmıştır; konuşma sırasının değiştiği an ancak birkaç saniye yaklaşıklıkla bilinir, ad bu yüzden konuşmacı başladıktan biraz sonra gelir.

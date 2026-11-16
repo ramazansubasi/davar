@@ -1055,7 +1055,8 @@ class TitlesPage(Page):
 
         g = self.card(parent, None, _("Speakers"),
                       _("One person per line: Name | Title. The title is optional. "
-                        "A separate file is written for each person."))
+                        "A separate file is written for each person. To put one name elsewhere than "
+                        "the others, add its place (left, centre, right): Name | Title | right"))
         self.people = tk.Text(g, height=4, bg=FIELD, fg=TEXT, insertbackground=TEXT, bd=0,
                               highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
                               font=("Segoe UI", 11), padx=8, pady=6, wrap="none")
@@ -1066,7 +1067,7 @@ class TitlesPage(Page):
                       _("Write the speakers in the order they first speak. Davar listens for who speaks when "
                         "and puts each name on the track above the video, a few seconds after that person "
                         "first speaks. It needs the transcript. To choose the moment yourself, add the time "
-                        "in the video as a third field: Name | Title | 0:41"))
+                        "in the video to the line: Name | Title | 0:41"))
         self.timeline_note = ttk.Label(g, text="", style="Card.TLabel", wraplength=680, justify="left")
         self.timeline_note.pack(anchor="w", pady=(6, 0))
 
@@ -1078,7 +1079,9 @@ class TitlesPage(Page):
                   style="CardMuted.TLabel").grid(row=0, column=2, sticky="w", pady=(8, 0))
         ttk.Label(g, text=_("Place"), style="Card.TLabel").grid(row=1, column=0, sticky="w", pady=(8, 0))
         ttk.Combobox(g, textvariable=self.position, values=list(self.positions), width=14,
-                     state="readonly").grid(row=1, column=1, columnspan=2, sticky="w", padx=(12, 0), pady=(8, 0))
+                     state="readonly").grid(row=1, column=1, sticky="w", padx=(12, 6), pady=(8, 0))
+        ttk.Label(g, text=_("For the names whose line gives no place of its own"),
+                  style="CardMuted.TLabel").grid(row=1, column=2, sticky="w", pady=(8, 0))
         ttk.Label(g, text=_("Accent colour"), style="Card.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
         ttk.Entry(g, textvariable=self.colour, width=10).grid(row=2, column=1, sticky="w", padx=(12, 6), pady=(8, 0))
         ttk.Label(g, text=_("Colour of the stripe and the title band; example #E30613"),
@@ -1109,7 +1112,10 @@ class TitlesPage(Page):
             return _("Write at least one name")
         if not video and not self.app.folder.get().strip():
             return _("Choose an output folder to make one without a video")
-        untimed = any(len(row.split("|")) < 3 or not row.split("|")[2].strip() for row in self._rows())
+        try:
+            untimed = any(person["time"] is None for person in titles.parse_people(self._rows()))
+        except DavarError:
+            untimed = False  # a line that cannot be read is explained in the log when Start is pressed
         if self.timeline.get() and video and untimed and not self.app.transcript():
             return _("Run Transcribe first, or give each name a time")
         return ""
@@ -1130,6 +1136,7 @@ class TitlesPage(Page):
     def read_settings(self):
         video = self._video()
         saved = self.app.transcript() if video else None
+        titles.parse_people(self._rows())  # a line that cannot be read stops here, with its reason
         return dict(rows=self._rows(), video=video, folder=self.app.output_folder(),
                     duration=float(self.duration.get()), colour=self.colour.get(),
                     position=self.positions[self.position.get()],

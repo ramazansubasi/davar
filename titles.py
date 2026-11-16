@@ -29,6 +29,10 @@ FONTS = {
                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"],
 }
 POSITIONS = ("left", "centre", "right")
+# what may be written in a speaker's line to place that name, as roughcut.plain() spells it
+# (it lowercases the Turkish way, so RIGHT arrives as "rıght")
+PLACE_WORDS = {"left": "left", "sol": "left", "centre": "centre", "center": "centre", "orta": "centre",
+               "right": "right", "rıght": "right", "sağ": "right", "sag": "right"}
 PANEL = (14, 18, 26, 225)  # colour of the name band (dark, slightly transparent)
 FADE_IN, FADE_OUT = 0.5, 0.4  # seconds
 # Placing a name on the timeline. Where a turn begins is only known to within a few seconds,
@@ -182,18 +186,31 @@ def make_lower_third(name, title="", video=None, folder=None, duration=6.0, colo
 
 
 def parse_people(rows):
-    """Lines of the form "Name | Title | time" as dicts. The title and the time (the moment in
-    the video the name should appear) are optional."""
+    """Lines of the form "Name | Title | place | time" as dicts.
+
+    Only the name is needed. The place (left, centre, right; also in Turkish) puts this name
+    elsewhere than the others, and the time is the moment in the video it should appear.
+    The two may come in either order: a word is a place, a number is a time.
+    """
     people = []
     for row in rows:
         fields = [field.strip() for field in row.split("|")]
         if not fields[0]:
             continue
-        if len(fields) > 3:
-            raise DavarError(_("too many “|” in the line “{line}”. It reads: Name | Title | time").format(
+        if len(fields) > 4:
+            raise DavarError(_("too many “|” in the line “{line}”. It reads: Name | Title | place | time").format(
                 line=row.strip()))
-        fields += [""] * (3 - len(fields))
-        people.append({"name": fields[0], "title": fields[1], "time": parse_time(fields[2]) if fields[2] else None})
+        person = {"name": fields[0], "title": fields[1] if len(fields) > 1 else "", "position": None, "time": None}
+        for field in fields[2:]:
+            if not field:
+                continue
+            kind = "position" if plain(field) in PLACE_WORDS else "time" if field[0].isdigit() else None
+            if kind is None or person[kind] is not None:
+                raise DavarError(_("could not read “{field}” in the line “{line}”. After the title comes a place "
+                                   "(left, centre, right) or a time (0:41), each once.").format(
+                    field=field, line=row.strip()))
+            person[kind] = PLACE_WORDS[plain(field)] if kind == "position" else parse_time(field)
+        people.append(person)
     if not people:
         raise DavarError(_("a lower third needs at least a name."))
     return people
@@ -272,8 +289,9 @@ def place_on_timeline(video, people, items, folder=None, words=None, language="t
 
 
 def make_lower_thirds(rows, progress=None, timeline=False, words=None, language="tr", **settings):
-    """Make several lower thirds from lines of the form "Name | Title". With `timeline` (and a
-    video) they are also placed on the timeline; `words` is the transcript of the video."""
+    """Make several lower thirds from lines of the form "Name | Title | place | time" (see
+    parse_people); `position` in the settings is for the lines that name no place. With `timeline`
+    (and a video) they are also placed on the timeline; `words` is the transcript of the video."""
     people = parse_people(rows)
     share = 0.85 if timeline else 1.0  # of the progress bar
     results = []
@@ -281,7 +299,8 @@ def make_lower_thirds(rows, progress=None, timeline=False, words=None, language=
         def step(percent, text, i=i):
             if progress:
                 progress((i * 100 + percent) / len(people) * share, text)
-        results.append(make_lower_third(person["name"], person["title"], progress=step, **settings))
+        own = {**settings, "position": person["position"]} if person["position"] else settings
+        results.append(make_lower_third(person["name"], person["title"], progress=step, **own))
     result = {"output": results[0]["output"], "items": results}
     if timeline and settings.get("video"):
         result.update(place_on_timeline(settings["video"], people, results, settings.get("folder"), words,

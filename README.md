@@ -187,6 +187,13 @@ Makes a lower third for a speaker's name and title: an accent stripe on the left
 
 The size and frame rate come from the selected video; the duration, place (left, centre, right) and accent colour can be set.
 
+Write one person per line, as `Name | Title`. When people sit on different sides, give a name its own place after the title; the lines without one use the place chosen on the page:
+
+```
+Jane Doe | Journalist | left
+John Roe | Mayor | right
+```
+
 ### Placing the names on the timeline
 
 With **Place them on the timeline** ticked, Davar also puts each name on the track above the video, a few seconds after that person first speaks:
@@ -194,7 +201,7 @@ With **Place them on the timeline** ticked, Davar also puts each name on the tra
 - Write the speakers **in the order they first speak**. Davar tells the voices apart by their colour and gives the first line the voice heard first, the second line the next new voice, and so on. This needs the transcript.
 - The names go into the Rough Cut timeline of the video (`<video>_cut.fcpxml`) when there is one; import it into Resolve again. Without one, a timeline of the whole video is written (`<video>_titles.fcpxml`).
 - The log shows the moment chosen for each name and the words spoken there, so a swap is easy to see. If two names are swapped, change the order of the lines.
-- To choose the moment yourself, add the time in the video as a third field: `Jane Doe | Journalist | 0:41`.
+- To choose the moment yourself, add the time in the video to the line: `Jane Doe | Journalist | 0:41`. A place and a time can stand together, in either order: `John Roe | Mayor | right | 0:41`.
 - Running Rough Cut again keeps the names where they are.
 
 The voices are told apart on your computer, with no extra download. It is made for a few people with clearly different voices; the moment a turn changes is known only to within a few seconds, which is why the name appears a little after the speaker starts.

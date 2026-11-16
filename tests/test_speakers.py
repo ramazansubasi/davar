@@ -85,13 +85,20 @@ class Placing(unittest.TestCase):
     def people(self, *rows):
         return titles.parse_people(rows)
 
-    def test_lines_are_read_with_or_without_title_and_time(self):
+    def test_lines_are_read_with_or_without_title_place_and_time(self):
         self.assertEqual(self.people("Jane Doe | Host", "John Roe", "Ann Poe | | 1:05", "  "),
-                         [{"name": "Jane Doe", "title": "Host", "time": None},
-                          {"name": "John Roe", "title": "", "time": None},
-                          {"name": "Ann Poe", "title": "", "time": 65.0}])
-        for bad in (["a | b | c | d"], ["Jane | Host | soon"], ["  "]):
-            with self.assertRaises(DavarError):
+                         [{"name": "Jane Doe", "title": "Host", "position": None, "time": None},
+                          {"name": "John Roe", "title": "", "position": None, "time": None},
+                          {"name": "Ann Poe", "title": "", "position": None, "time": 65.0}])
+        self.assertEqual([(p["position"], p["time"]) for p in self.people(
+            "A | Host | sol", "B | Guest | Sağ | 0:41", "C | | 12:30 | ORTA", "D | x | RIGHT", "E | x | center |")],
+            [("left", None), ("right", 41.0), ("centre", 750.0), ("right", None), ("centre", None)],
+            "a word is a place and a number is a time, in either order and in either language")
+        self.assertEqual(self.people("Sol Kaya | Sağ Görüş")[0]["position"], None,
+                         "the second field is always the title, whatever it says")
+        for bad in (["a | b | left | 0:41 | x"], ["Jane | Host | soon"], ["Jane | Host | left | right"],
+                    ["Jane | Host | 0:41 | 0:50"], ["Jane | Host | 0:4x"], ["  "]):
+            with self.assertRaises(DavarError, msg=bad):
                 titles.parse_people(bad)
 
     def test_each_name_goes_where_its_speaker_first_speaks(self):
