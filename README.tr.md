@@ -12,19 +12,20 @@ Adı iki yere selam veriyor: **Da**Vinci **R**esolve'a ve bu işin Türkiye'deki
 
 ## İş akışları
 
-Dokuz iş akışından beşi çalışıyor, dördü planlandı.
+On iş akışından altısı çalışıyor, dördü planlandı.
 
 | No | İş akışı | Durum | Ne yapar |
 |---|---|---|---|
 | 01 | Ses | çalışıyor | Ayrı kaydedilmiş sesleri videodaki yerine oturtur, ses düzeyini YouTube'a göre ayarlar |
-| 02 | İlk Analiz | çalışıyor | Konuşmayı bir kez, kelime zamanlarıyla yazıya döker ve kaydeder; altyazı (`.srt`) ve metin (`.txt`) üretir |
-| 03 | Kaba Kurgu | çalışıyor | Sessizlikleri, "ııı / eee" duraksamalarını ve dolgu kelimelerini bulur; adayları onayına sunar; Resolve çizelgesi (`.fcpxml`) yazar |
-| 04 | Çok Kamera Kurgusu | planlandı | Kim konuşuyorsa onun kamerasını seçer |
-| 05 | İçerik Analizi | planlandı | Konuları, bölüm zamanlarını ve öne çıkan yerleri çıkarır |
-| 06 | Yazılar | çalışıyor | Konuşmacı adı ve unvanı için saydam zeminli, yumuşak giriş-çıkışlı KJ (alt bant) videosu üretir |
-| 07 | Görsel Malzeme | planlandı | Araya girecek fotoğraf ve belgelerin yerleşimi |
-| 08 | Sosyal Klipler | çalışıyor | Seçilen aralığı başlık, altyazı ve kapakla dikey Reels / Shorts olarak keser |
-| 09 | Yayın | planlandı | YouTube açıklaması, bölüm zamanları, başlık önerileri |
+| 02 | Görüntü | çalışıyor | Videoyu 16:9 kadraja getirir ve sehpa çekimini sabitler; arka plan yerinden oynamaz |
+| 03 | İlk Analiz | çalışıyor | Konuşmayı bir kez, kelime zamanlarıyla yazıya döker ve kaydeder; altyazı (`.srt`) ve metin (`.txt`) üretir |
+| 04 | Kaba Kurgu | çalışıyor | Sessizlikleri, "ııı / eee" duraksamalarını ve dolgu kelimelerini bulur; adayları onayına sunar; Resolve çizelgesi (`.fcpxml`) yazar |
+| 05 | Çok Kamera Kurgusu | planlandı | Kim konuşuyorsa onun kamerasını seçer |
+| 06 | İçerik Analizi | planlandı | Konuları, bölüm zamanlarını ve öne çıkan yerleri çıkarır |
+| 07 | Yazılar | çalışıyor | Konuşmacı adı ve unvanı için saydam zeminli, yumuşak giriş-çıkışlı KJ (alt bant) videosu üretir |
+| 08 | Görsel Malzeme | planlandı | Araya girecek fotoğraf ve belgelerin yerleşimi |
+| 09 | Sosyal Klipler | çalışıyor | Seçilen aralığı başlık, altyazı ve kapakla dikey Reels / Shorts olarak keser |
+| 10 | Yayın | planlandı | YouTube açıklaması, bölüm zamanları, başlık önerileri |
 
 Orijinal videoya hiçbir iş akışı dokunmaz. Resolve'un **ücretsiz sürümüyle** çalışır: Davar Resolve'u dışarıdan yönetmez, Resolve'un içe aktardığı dosyalar üretir.
 
@@ -38,6 +39,7 @@ Gerekenler:
 - **ffmpeg** (`ffmpeg` ve `ffprobe` komutları PATH'te olmalı)
 - **numpy** ve **Pillow**
 - **faster-whisper** (İlk Analiz ve otomatik altyazı için)
+- **OpenCV** (`opencv-python`, Görüntü'de kadrajı sabitlemek için)
 
 ```bash
 pip install -r requirements.txt
@@ -61,6 +63,10 @@ Her iş akışı aynı zamanda bir betiktir:
 
 ```bash
 python audio.py "video.mp4" --audio "yaka_mikrofonu.wav"
+```
+
+```bash
+python picture.py "video.mp4" --position 100
 ```
 
 ```bash
@@ -97,7 +103,22 @@ Ayrı kaydedilmiş sesleri (yaka mikrofonu, ses kayıt cihazı, sonradan kaydedi
 
 Görüntü yeniden kodlanmaz; sonuç `<video>_audio.mp4` olarak yazılır. Sonraki adımları bu yeni videoyla yap.
 
-## 02 İlk Analiz
+## 02 Görüntü
+
+Telefonla çekilmiş görüntüler için. İki iş yapar; ikisi de ayrı ayrı kapatılabilir.
+
+**16:9 kadraja getirme.** Çoğu telefon 16:9'dan geniş çeker; YouTube'da bu, görüntünün üstünde ve altında siyah bant demektir. Davar bunun yerine yanları keser. Konum, hangi yanın gideceğini söyler: 0 sol kenarı tutar, 50 iki yandan eşit alır, 100 sağ kenarı tutar (yani hepsi soldan kesilir). Yüksekliğe dokunulmaz, bu yüzden görüntü büyütülmez.
+
+**Kadrajı sabitleme.** Sehpadaki telefon da görüntüyü oynatır. Odak ararken mercek hareket eder; görüntünün tamamı büyür, küçülür ve birkaç piksel zıplar. Uzun kayıtta kadraj ayrıca yavaş yavaş kayar. Birkaç saniyede bir kesilen videoda arka plan her kesimde sıçrar. Davar arka planı bütün video boyunca izler, her kareyi tek bir örnek kareye hizalar ve oynayan kenarlar görünmesin diye yaklaşık yüzde bir yakınlaştırır. Kameranın önünde hareket eden insanlar bunu bozmaz: arka plan tek bir konumda birleşir, gerisi dikkate alınmaz.
+
+- Yalnızca hareket etmeyen kamera içindir. Görüntünün genişliğinin birkaç yüzdesinden fazla gezdiği videoyu Davar reddeder.
+- Odağın kaçtığı andaki bulanıklık onarılamaz; yalnızca hareket giderilir.
+- Sabitleme her kareyi iki kez okur ve videoyu baştan yazar. Videonun süresinin bir-iki katı kadar sürer.
+- Değişken kare hızı sabit hıza çevrilir.
+
+Ses olduğu gibi kopyalanır; sonuç `<video>_picture.mp4` olarak yazılır. Orijinal için yapılmış İlk Analiz yeni videoya taşınır, yeniden yazıya dökmek gerekmez. Sonraki adımları yeni videoyla yap.
+
+## 03 İlk Analiz
 
 Konuşmayı kelime kelime zamanlarıyla yazıya döker ve videonun yanına `<video>.davar.json` olarak kaydeder. Diğer iş akışları bu kaydı okur; aynı video yeniden yazıya dökülmez. İstenirse YouTube Studio'ya yüklenebilen altyazı (`.srt`) ve zaman damgalı metin (`_transcript.txt`) de yazar.
 
@@ -117,7 +138,7 @@ top sen = TÜPSAN
 
 Sözlük her okunuşta uygulanır: bir kez öğrettiğin kelime sonraki videolarda da, daha önce analiz ettiklerinde de kendiliğinden düzelir. Kesme işaretinden sonraki ekler korunur (`Akbörse'nin` → `Akköse'nin`).
 
-## 03 Kaba Kurgu
+## 04 Kaba Kurgu
 
 | Ne bulur | Nasıl |
 |---|---|
@@ -144,13 +165,13 @@ Duraksamalar ve dolgu kelimeleri **aday** olarak bir listede gelir: zaman, tür,
 
 Bunun için yapay zekâ modeli ya da internet bağlantısı gerekmez; sesin kendisinden hesaplanır. Bu yüzden Kaba Kurgu, yazıya dökülmemiş videolarda da çalışır.
 
-## 06 Yazılar
+## 07 Yazılar
 
 Konuşmacı adı ve unvanı için KJ (alt bant) üretir: solda vurgu şeridi, üstte ad, altta unvan. Yarım saniyede soldan açılır, sonunda solarak çıkar. Çıktı saydam zeminli bir videodur (ProRes 4444, `lowerthird_<ad>.mov`); Resolve'da videonun üstündeki şeride sürüklersin, ayrıca efekt gerekmez.
 
 Boyut ve kare hızı seçili videodan alınır; süre, yer (sol, orta, sağ) ve vurgu rengi ayarlanabilir.
 
-## 08 Sosyal Klipler
+## 09 Sosyal Klipler
 
 Yatay bir videodan verdiğin zaman aralığını 1080x1920 dikey video olarak keser: bulanık arka plan üstünde konuşmacı kadrajı, üstte kısa bir yazı ve iki satıra kadar başlık. İsteğe bağlı olarak altyazı ve 2,5 saniyelik bir giriş kapağı ekler. Ses yüksekliği sosyal medya düzeyine (-14 LUFS) getirilir.
 

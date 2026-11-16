@@ -60,6 +60,22 @@ def load(video, folder=None):
     return None
 
 
+def carry_over(source, target):
+    """Give `target` the transcript of `source`. For a new video whose audio is the same as
+    the original's (only the picture was changed). Returns whether there was one to carry."""
+    source, target = Path(source), Path(target)
+    for path in {transcript_path(source, target.parent), transcript_path(source)}:
+        try:
+            record = _upgrade(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+        if record.get("version") == VERSION and record.get("video") == _identity(source):
+            record["video"] = _identity(target)
+            transcript_path(target).write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+            return True
+    return False
+
+
 def save(record):
     """Write corrected words back to the transcript file."""
     stored = {k: v for k, v in record.items() if k not in ("path", "corrections")}

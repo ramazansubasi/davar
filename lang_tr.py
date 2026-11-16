@@ -489,4 +489,72 @@ TRANSLATIONS = {
     "Prepares title suggestions and tags.": "Başlık önerileri ve etiketler hazırlar.",
     "Suggests text and a frame for the thumbnail.": "Kapak görseli (thumbnail) için yazı ve kare önerir.",
     "The chapter extraction step of Content Analysis.": "İçerik Analizi'nin bölüm çıkarma adımı.",
+    # picture
+    "Picture": "Görüntü",
+    "Reframes the video to 16:9 and holds a tripod shot still. The picture is re-encoded and "
+    "written as a new video; the audio is not touched, so a transcript already made stays "
+    "valid. The next steps continue with the new video.":
+        "Videoyu 16:9 kadraja getirir ve sehpa çekimini yerinde sabitler. Görüntü yeniden kodlanıp yeni bir "
+        "video olarak yazılır; sese dokunulmaz, bu yüzden önceden yapılmış İlk Analiz geçerli kalır. Sonraki "
+        "adımlar yeni videoyla devam eder.",
+    "Reframe to 16:9": "16:9 kadraja getir",
+    "Cuts the sides of a picture wider than 16:9 (most phones), or the top and bottom of "
+    "a narrower one, so that it fills the YouTube frame with no black bars.":
+        "16:9'dan geniş görüntünün (çoğu telefon) yanlarını, dar olanın üstünü ve altını keser; görüntü "
+        "YouTube çerçevesini siyah bant kalmadan doldurur.",
+    "Position of the frame": "Kadrajın konumu",
+    "0 = keep the left (or top) edge, 50 = middle, 100 = keep the right (or bottom) edge":
+        "0 = sol (ya da üst) kenar kalır, 50 = orta, 100 = sağ (ya da alt) kenar kalır",
+    "Lock the frame (tripod shots)": "Kadrajı sabitle (sehpa çekimleri)",
+    "A phone on a tripod still makes the picture pump and hop while it hunts for focus, and "
+    "the frame creeps over a long recording. Every frame is lined up with one reference "
+    "frame, so the background stands perfectly still and cuts show less. The blur of the "
+    "moment the focus slips stays. Only for a camera that does not move. Needs OpenCV.\n"
+    "It takes one to two times the length of the video; the time left is shown at the bottom.":
+        "Sehpadaki telefon odak ararken görüntüyü büyütüp küçültür ve zıplatır; uzun kayıtta kadraj da yavaş "
+        "yavaş kayar. Her kare tek bir örnek kareye hizalanır: arka plan yerinden hiç oynamaz, kesim yerleri "
+        "daha az belli olur. Odağın kaçtığı andaki bulanıklık kalır. Yalnızca hareket etmeyen kamera "
+        "içindir. OpenCV gerekir.\n"
+        "Videonun süresinin bir-iki katı kadar sürer; kalan süre altta görünür.",
+    "Tick an operation": "Bir işlem işaretle",
+    "could not read the frame shape “{text}”. Example: 16:9": "kadraj biçimi “{text}” okunamadı. Örnek: 16:9",
+    "the frame position must be between 0 and 100.": "kadraj konumu 0 ile 100 arasında olmalı.",
+    "the picture could not be followed in any frame.": "görüntü hiçbir karede izlenemedi.",
+    "OpenCV is needed to lock the frame. Install it with: pip install opencv-python":
+        "Kadrajı sabitlemek için OpenCV gerekir. Kurmak için: pip install opencv-python",
+    "the picture has too little detail to follow (a plain wall, or too dark).":
+        "görüntüde izlenecek kadar ayrıntı yok (düz bir duvar ya da fazla karanlık).",
+    "about {minutes} min left": "yaklaşık {minutes} dk kaldı",
+    "no frame could be read from the video.": "videodan kare okunamadı.",
+    "Following the picture": "Görüntü izleniyor",
+    "the picture already has this shape and locking is off: there is nothing to do.":
+        "görüntü zaten bu biçimde ve sabitleme kapalı: yapılacak bir şey yok.",
+    "the new video would overwrite the original.": "yeni video orijinalin üzerine yazılacaktı.",
+    "the picture could not be followed in {share:.0f}% of the frames. Locking "
+    "only works for a camera that does not move.":
+        "görüntü karelerin %{share:.0f} kadarında izlenemedi. Sabitleme yalnızca hareket etmeyen kamerada "
+        "çalışır.",
+    "the camera moves too much in this video (up to {pixels:.0f} pixels). "
+    "Locking only works for a camera that does not move.":
+        "bu videoda kamera fazla hareket ediyor ({pixels:.0f} piksele kadar). Sabitleme yalnızca hareket "
+        "etmeyen kamerada çalışır.",
+    "Frame    : {width}x{height} -> {w}x{h}  (cut: left {left}, right {right}, top {top}, "
+    "bottom {bottom} pixels)":
+        "Kadraj   : {width}x{height} -> {w}x{h}  (kesilen: sol {left}, sağ {right}, üst {top}, "
+        "alt {bottom} piksel)",
+    "Locked   : the picture wandered by up to {pixels:.1f} pixels and {scale:.2f}% in size; "
+    "every frame now lines up with one reference frame":
+        "Sabitlendi: görüntü {pixels:.1f} piksele kadar kayıyor, boyutu %{scale:.2f} oynuyordu; "
+        "artık her kare tek bir örnek kareye hizalı",
+    "Zoom     : {percent:.1f}% closer, so the moving edges stay out of sight":
+        "Yakınlık : %{percent:.1f} yakınlaştırıldı; oynayan kenarlar görünmüyor",
+    "Lost     : {count} of {frames} frames could not be followed and took the position "
+    "of their neighbours":
+        "İzlenemedi: {frames} karenin {count} tanesi izlenemedi, komşularının konumunu aldı",
+    "Rate     : the variable frame rate was turned into a constant one":
+        "Kare hızı: değişken kare hızı sabit hıza çevrildi",
+    "Text     : the transcript was carried over to the new video (the audio is unchanged)":
+        "Metin    : İlk Analiz yeni videoya taşındı (ses değişmedi)",
+    "Time     : {minutes:.0f} min": "Süre     : {minutes:.0f} dk",
+    "Video written (audio not touched): {path}": "Video yazıldı (sese dokunulmadı): {path}",
 }

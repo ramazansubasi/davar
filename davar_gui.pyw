@@ -24,6 +24,7 @@ import audio  # noqa: E402
 import clips  # noqa: E402
 import dictionary  # noqa: E402
 import i18n  # noqa: E402
+import picture  # noqa: E402
 import roughcut  # noqa: E402
 import titles  # noqa: E402
 import transcript  # noqa: E402
@@ -282,6 +283,56 @@ class AudioPage(Page):
 
     def result_text(self, result):
         return (audio.report(result) + "\n"
+                + _("The video field now points to this new file; the next steps work on it."))
+
+
+class PicturePage(Page):
+    name = N_("Picture")
+    description = N_("Reframes the video to 16:9 and holds a tripod shot still. The picture is re-encoded and "
+                     "written as a new video; the audio is not touched, so a transcript already made stays "
+                     "valid. The next steps continue with the new video.")
+
+    def build(self, parent):
+        self.reframe = tk.BooleanVar(value=True)
+        self.position = tk.DoubleVar(value=50)
+        self.lock = tk.BooleanVar(value=True)
+
+        g = self.card(parent, self.reframe, _("Reframe to 16:9"),
+                      _("Cuts the sides of a picture wider than 16:9 (most phones), or the top and bottom of "
+                        "a narrower one, so that it fills the YouTube frame with no black bars."))
+        ttk.Label(g, text=_("Position of the frame"), style="Card.TLabel").grid(
+            row=0, column=0, sticky="w", padx=(0, 12), pady=(8, 0))
+        ttk.Spinbox(g, textvariable=self.position, from_=0, to=100, increment=5, width=6).grid(
+            row=0, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(g, text=_("0 = keep the left (or top) edge, 50 = middle, 100 = keep the right (or bottom) edge"),
+                  style="CardMuted.TLabel").grid(row=0, column=2, sticky="w", padx=(14, 0), pady=(8, 0))
+
+        self.card(parent, self.lock, _("Lock the frame (tripod shots)"),
+                  _("A phone on a tripod still makes the picture pump and hop while it hunts for focus, and "
+                    "the frame creeps over a long recording. Every frame is lined up with one reference "
+                    "frame, so the background stands perfectly still and cuts show less. The blur of the "
+                    "moment the focus slips stays. Only for a camera that does not move. Needs OpenCV.\n"
+                    "It takes one to two times the length of the video; the time left is shown at the bottom."))
+
+    def missing(self):
+        if not (self.reframe.get() or self.lock.get()):
+            return _("Tick an operation")
+        return ""
+
+    def read_settings(self):
+        return dict(video=self.app.video_path(), folder=self.app.output_folder(),
+                    aspect="16:9" if self.reframe.get() else None, position=float(self.position.get()),
+                    lock=self.lock.get())
+
+    def run(self, settings, progress):
+        return picture.process(progress=progress, **settings)
+
+    def finish(self, result):
+        self.app.video.set(str(result["output"]))  # the next steps should work on the new video
+        return result
+
+    def result_text(self, result):
+        return (picture.report(result) + "\n"
                 + _("The video field now points to this new file; the next steps work on it."))
 
 
@@ -1124,8 +1175,8 @@ class PublishPage(Planned):
     needs = N_("The chapter extraction step of Content Analysis.")
 
 
-PAGES = [AudioPage, TranscribePage, RoughCutPage, MultiCamPage, ContentAnalysisPage, TitlesPage,
-         VisualAssetsPage, SocialClipsPage, PublishPage]
+PAGES = [AudioPage, PicturePage, TranscribePage, RoughCutPage, MultiCamPage, ContentAnalysisPage,
+         TitlesPage, VisualAssetsPage, SocialClipsPage, PublishPage]
 
 
 class App(tk.Tk):
@@ -1171,7 +1222,7 @@ class App(tk.Tk):
             page = page_class(body, self, index + 1)
             page.place(relx=0, rely=0, relwidth=1, relheight=1)
             button = tk.Label(menu, text=f"{index + 1:02d}    " + _(page_class.name), anchor="w", padx=18,
-                              pady=13, font=("Segoe UI Semibold", 11), cursor="hand2")
+                              pady=10, font=("Segoe UI Semibold", 11), cursor="hand2")
             button.pack(fill="x", pady=(0, 2))
             button.bind("<Button-1>", lambda _e, i=index: self.show(i))
             self.pages.append(page)

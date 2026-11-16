@@ -12,19 +12,20 @@ The name nods to two things: **Da**Vinci **R**esolve, and *Katır* ("mule"), İl
 
 ## Workflows
 
-Five of the nine workflows work; four are planned.
+Six of the ten workflows work; four are planned.
 
 | No | Workflow | Status | What it does |
 |---|---|---|---|
 | 01 | Audio | works | Puts separately recorded audio in its place in the video and sets the loudness for YouTube |
-| 02 | Transcribe | works | Transcribes the speech once with word-level timing and saves it; writes subtitles (`.srt`) and text (`.txt`) |
-| 03 | Rough Cut | works | Finds silences, "uh / um" hesitations and filler words, lets you review the candidates, writes a Resolve timeline (`.fcpxml`) |
-| 04 | Multicam Edit | planned | Picks the camera of whoever is speaking |
-| 05 | Content Analysis | planned | Extracts topics, chapter times and highlights |
-| 06 | Titles | works | Makes a transparent lower third with a soft entrance and exit for a speaker's name and title |
-| 07 | Visual Assets | planned | Places photos and documents to cut in |
-| 08 | Social Clips | works | Cuts a chosen range into a vertical Reels / Shorts video with headline, subtitles and cover |
-| 09 | Publish | planned | YouTube description, chapter times, title suggestions |
+| 02 | Picture | works | Reframes the video to 16:9 and locks a tripod shot so the background stands still |
+| 03 | Transcribe | works | Transcribes the speech once with word-level timing and saves it; writes subtitles (`.srt`) and text (`.txt`) |
+| 04 | Rough Cut | works | Finds silences, "uh / um" hesitations and filler words, lets you review the candidates, writes a Resolve timeline (`.fcpxml`) |
+| 05 | Multicam Edit | planned | Picks the camera of whoever is speaking |
+| 06 | Content Analysis | planned | Extracts topics, chapter times and highlights |
+| 07 | Titles | works | Makes a transparent lower third with a soft entrance and exit for a speaker's name and title |
+| 08 | Visual Assets | planned | Places photos and documents to cut in |
+| 09 | Social Clips | works | Cuts a chosen range into a vertical Reels / Shorts video with headline, subtitles and cover |
+| 10 | Publish | planned | YouTube description, chapter times, title suggestions |
 
 No workflow modifies your original video. Davar works with the **free version** of Resolve: it does not remote-control Resolve, it writes files that Resolve imports.
 
@@ -38,6 +39,7 @@ You need:
 - **ffmpeg** (`ffmpeg` and `ffprobe` on your PATH)
 - **numpy** and **Pillow**
 - **faster-whisper** (for Transcribe and automatic subtitles)
+- **OpenCV** (`opencv-python`, for locking the frame in Picture)
 
 ```bash
 pip install -r requirements.txt
@@ -67,6 +69,10 @@ Every workflow is also a script:
 
 ```bash
 python audio.py "video.mp4" --audio "lavalier.wav"
+```
+
+```bash
+python picture.py "video.mp4" --position 100
 ```
 
 ```bash
@@ -103,7 +109,22 @@ Puts separately recorded audio (a lavalier microphone, an audio recorder, parts 
 
 The picture is not re-encoded; the result is written as `<video>_audio.mp4`. Do the next steps with that new video.
 
-## 02 Transcribe
+## 02 Picture
+
+For footage shot on a phone. It does two things, each of which can be switched off.
+
+**Reframe to 16:9.** Most phones record a picture wider than 16:9, which leaves black bars above and below it on YouTube. Davar cuts the sides instead. The position says which side goes: 0 keeps the left edge, 50 takes the same from both sides, 100 keeps the right edge (so everything is cut from the left). The height is untouched, so nothing is scaled up.
+
+**Lock the frame.** A phone on a tripod still moves the picture. While it hunts for focus the lens travels, and the whole picture grows, shrinks and hops by a few pixels; over a long recording the frame also creeps. In a video that is cut every few seconds, the background then jumps at every cut. Davar follows the background through the whole video, lines every frame up with one reference frame and zooms in by about one percent to keep the moving edges out of sight. People moving in front of the camera do not disturb it: the background agrees on one position and everything else is ignored.
+
+- Only for a camera that does not move. Davar refuses a video in which the picture travels more than a few percent of its width.
+- The blur of the moment the focus slips cannot be repaired; only the movement is.
+- Locking reads every frame twice and writes the video anew. Expect one to two times the length of the video.
+- A variable frame rate comes out constant.
+
+The audio is copied untouched; the result is written as `<video>_picture.mp4`. A transcript already made for the original is carried over to the new video, so Transcribe does not have to run again. Do the next steps with the new video.
+
+## 03 Transcribe
 
 Transcribes the speech word by word with timing and saves it next to the video as `<video>.davar.json`. The other workflows read that file; the same video is never transcribed twice. It can also write subtitles you can upload to YouTube Studio (`.srt`) and a time-stamped text file (`_transcript.txt`).
 
@@ -123,7 +144,7 @@ top sen = TÜPSAN
 
 The dictionary is applied every time a transcript is read: a word taught once is fixed in later videos and in the ones transcribed before. A suffix after an apostrophe is kept (`Akbörse'nin` → `Akköse'nin`).
 
-## 03 Rough Cut
+## 04 Rough Cut
 
 | What it finds | How |
 |---|---|
@@ -150,13 +171,13 @@ An "uh" rarely stops abruptly: it fades for another 0.1-0.3 seconds. The cut fol
 
 No AI model or internet connection is needed for this; it is computed from the audio. That is why Rough Cut also works on videos that have not been transcribed.
 
-## 06 Titles
+## 07 Titles
 
 Makes a lower third for a speaker's name and title: an accent stripe on the left, the name on top, the title below. It opens from the left in half a second and fades out at the end. The output is a video with a transparent background (ProRes 4444, `lowerthird_<name>.mov`); in Resolve you drag it onto the track above the video and need no further effect.
 
 The size and frame rate come from the selected video; the duration, place (left, centre, right) and accent colour can be set.
 
-## 08 Social Clips
+## 09 Social Clips
 
 Cuts the time range you give from a landscape video into a 1080x1920 vertical video: the speaker's frame over a blurred background, a short kicker and up to two headline lines on top. Optionally it adds subtitles and a 2.5 second intro cover. Loudness is brought to the social media level (-14 LUFS).
 

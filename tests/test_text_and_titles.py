@@ -25,7 +25,8 @@ WORDS = [["Hâlâ", 5.0, 5.2], ["top", 5.2, 5.5], ["sen", 5.5, 5.7], ["de", 5.7,
 class Version(unittest.TestCase):
     def test_changelog_starts_with_the_current_version(self):
         text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-        first = next(line for line in text.splitlines() if line.startswith("## "))
+        first = next(line for line in text.splitlines()
+                     if line.startswith("## ") and "Unreleased" not in line)
         self.assertEqual(first.split()[1], VERSION, "add an entry to CHANGELOG.md when the version changes")
 
 
@@ -138,8 +139,8 @@ class LowerThird(unittest.TestCase):
 
 
 class Translations(unittest.TestCase):
-    SOURCES = ["common.py", "roughcut.py", "transcript.py", "dictionary.py", "audio.py", "clips.py",
-               "titles.py", "davar_gui.pyw"]
+    SOURCES = ["common.py", "roughcut.py", "transcript.py", "dictionary.py", "audio.py", "picture.py",
+               "clips.py", "titles.py", "davar_gui.pyw"]
 
     def source_strings(self):
         found = {}

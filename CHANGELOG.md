@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Picture**, a new workflow (02) for footage shot on a phone:
+  - **Reframe to 16:9.** Cuts the sides of a picture wider than 16:9, from the left, the right or both, so it fills the frame with no black bars.
+  - **Lock the frame.** For a camera on a tripod. While a phone hunts for focus the whole picture grows, shrinks and hops, and over a long recording the frame creeps by several pixels. Every frame is lined up with one reference frame, so the background stands still and cuts show less.
+  - The audio is copied untouched, and a transcript already made is carried over to the new video.
+
+### Changed
+
+- The workflows after Audio moved down by one: Transcribe is now 03, Rough Cut 04, Titles 07, Social Clips 09.
+
 ## 0.2.0 - 2026-11-16
 
 ### Added
