@@ -148,6 +148,28 @@ class Hesitation(unittest.TestCase):
         self.assertGreater(found[0][1], 3.9 + 0.15, "the cut must reach into the fading tail")
         self.assertLess(found[0][1], 4.15 + 0.08, "but must stop before the next word")
 
+    def test_wavering_tail_does_not_end_the_cut_early(self):
+        # the tail wavers by a few decibels while it fades: that is not the next word starting
+        rng = np.random.default_rng(12)
+        sound = tone(1.0, 110, 600, rng)
+        n, tail = len(sound), int(0.5 * SAMPLE_RATE)
+        t = np.linspace(0, 1, tail)
+        settle = np.minimum(t / 0.2, 1.0)  # slides down over the first tenth of a second, no jump
+        waver = 10 ** (settle * (-9 + 3 * np.sin(2 * np.pi * 4 * t)) / 20)  # then 6 to 12 dB down, wobbling
+        sound[n - tail:] *= waver.astype(np.float32)
+        x = np.concatenate((speech(3, rng), quiet(0.4, rng), sound, quiet(0.4, rng), speech(3, rng)))
+        found = self.find(x)
+        self.assertEqual([f[2] for f in found], ["alone"])
+        self.assertGreater(found[0][1], 4.3, "the whole one-second sound must be cut, wavering tail included")
+
+    def test_slow_onset_still_counts_as_starting_after_the_pause(self):
+        rng = np.random.default_rng(14)
+        sound = tone(0.7, 190, 650, rng, 0.1)
+        ramp = int(0.14 * SAMPLE_RATE)
+        sound[:ramp] *= (10 ** (np.linspace(-16, -3, ramp) / 20)).astype(np.float32)  # creeps in
+        x = np.concatenate((speech(3, rng), quiet(0.4, rng), sound, quiet(0.4, rng), speech(3, rng)))
+        self.assertEqual([f[2] for f in self.find(x)], ["alone"])
+
     def test_hesitation_running_into_a_word(self):
         rng = np.random.default_rng(3)
         x = np.concatenate((speech(3, rng), quiet(0.4, rng), tone(0.6, 180, 700, rng), speech(3, rng)))
@@ -241,6 +263,11 @@ class Candidates(unittest.TestCase):
         found = roughcut.build_candidates([(1.05, 1.55, "before_word"), (5.0, 5.4, "word_end")], np.full(700, -20.0))
         self.assertEqual([(c["confidence"], c["selected"]) for c in found], [("medium", True), ("low", False)])
 
+    def test_stretch_at_a_word_end_is_cut_only_when_the_transcript_heard_an_uh(self):
+        db = np.full(700, -20.0)
+        found = roughcut.build_candidates([(1.05, 1.55, "word_end"), (5.0, 5.4, "word_end")], db, self.WORDS)
+        self.assertEqual([(c["confidence"], c["selected"]) for c in found], [("medium", True), ("low", False)])
+
     def test_filler_words_arrive_unticked(self):
         db = np.full(400, -20.0)
         found = roughcut.build_candidates([], db, self.WORDS, filler_words=["yani", "Şey"])
@@ -263,8 +290,30 @@ class Candidates(unittest.TestCase):
     def test_sound_between_words_is_only_a_suggestion(self):
         db = np.full(400, -20.0)
         found = roughcut.build_candidates([(1.1, 1.5, "between_words"), (2.0, 2.4, "between_words")], db, self.WORDS)
-        self.assertEqual([(c["kind"], c["selected"]) for c in found], [("between_words", False)],
-                         "only the one the transcript heard becomes a candidate, and it arrives unticked")
+        self.assertEqual([(c["kind"], c["selected"]) for c in found], [("between_words", True)],
+                         "only the one the transcript heard becomes a candidate")
+        brief = roughcut.build_candidates([(1.1, 1.25, "between_words")], db, self.WORDS)
+        self.assertEqual([(c["kind"], c["selected"]) for c in brief], [("between_words", False)],
+                         "a brief one in the middle of speech is only a suggestion")
+
+    def test_second_steady_stretch_continues_a_hesitation_unless_a_word_is_there(self):
+        db = np.full(500, -20.0)
+        runs = [(1.0, 1.5, "before_word"), (1.52, 1.9, "between_words")]
+        free = [["ııı", 0.9, 1.9], ["tamam", 2.3, 2.7]]
+        found = roughcut.build_candidates(runs, db, free)
+        self.assertEqual([(c["start"], c["end"]) for c in found], [(1.0, 1.9)], "the same sound going on")
+        word = [["eee", 0.9, 1.5], ["elbette", 1.5, 2.0]]
+        found = roughcut.build_candidates(runs, db, word)
+        self.assertEqual([(c["start"], c["end"]) for c in found], [(1.0, 1.5)], "a word begins there")
+        found = roughcut.build_candidates(runs, db, None)
+        self.assertEqual([(c["start"], c["end"]) for c in found], [(1.0, 1.5)], "no transcript: no guessing")
+
+    def test_candidate_with_a_transcribed_word_inside_is_not_cut_by_default(self):
+        db = np.full(500, -20.0)
+        words = [["ııı", 0.9, 1.2], ["evet", 1.25, 1.6], ["tamam", 2.3, 2.7]]
+        found = roughcut.build_candidates([(1.0, 1.7, "alone")], db, words)
+        self.assertEqual([(c["confidence"], c["selected"]) for c in found], [("low", False)],
+                         "the transcript has the word 'evet' inside this stretch: leave it to the listener")
 
     def test_a_neighbouring_candidate_does_not_hide_another_hesitation(self):
         words = [["ııı", 1.0, 1.9], ["evet", 2.0, 2.3], ["ııı", 2.4, 3.2], ["tamam", 3.3, 3.7]]
