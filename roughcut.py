@@ -797,9 +797,7 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
         def usable(moment):  # a place that is trimmed away anyway is not offered
             return ((keep_from is None or moment >= keep_from) and (keep_to is None or moment < keep_to)
                     and not any(start <= moment < end for start, end in remove))
-        throats = sounds.find_throat_clearing(
-            samples, db, used, words or (), lambda text: is_filler_sound(text, language), usable,
-            lambda share, text: step(86 + 4 * share, text))
+        throats = sounds.find_throat_clearing(samples, db, used, usable, lambda share, text: step(86 + 4 * share, text))
     step(90, _("Preparing candidates"))
     candidates = build_candidates(found, db, words, filler_words, include_word_ends, short, language, bursts,
                                   throats)

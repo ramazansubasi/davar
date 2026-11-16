@@ -444,6 +444,7 @@ TRANSLATIONS = {
         "ses modeli için onnxruntime gerekir. Kurmak için: pip install onnxruntime",
     "Downloading the sound model (16 MB, only once)": "Ses modeli indiriliyor (16 MB, yalnızca bir kez)",
     "Listening for throat clearing": "Boğaz temizleme sesleri dinleniyor",
+    "Finding where each throat clearing begins and ends": "Her boğaz temizlemenin başı ve sonu aranıyor",
     "Has an AI chat of your choice write the YouTube texts: title suggestions, a description "
     "with chapters, tags, a summary and social clip candidates. No key and no fee: you paste "
     "Davar's prompt into the chat and its answer back here.":

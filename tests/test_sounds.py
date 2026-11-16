@@ -1,5 +1,5 @@
 """Tests finding throat clearing with the sound model, without the model: the classifier that
-comes with Davar, how places are pinned and widened, and how they join the candidates."""
+comes with Davar, how places are pinned and cut out, and how they join the candidates."""
 
 import sys
 import tempfile
@@ -48,21 +48,35 @@ class Places(unittest.TestCase):
         self.assertEqual([round(start) for start, _end, _best in found], [10, 30],
                          "10.0 and 10.8 are one place; 50 is trimmed away")
 
-    def test_a_place_grows_to_the_whole_sound_but_not_into_words(self):
-        db = np.full(1000, -70.0)
-        db[300:345] = -20  # a sound from 3.00 to 3.45 s
-        db[365:420] = -25  # speech goes on after a short pause
-        db[310:315] = -60  # a dip too short to end the sound
-        words = [["before", 2.0, 2.9], ["uh", 3.0, 3.3], ["after", 3.65, 4.2]]
-        start, end = sounds.widen(3.1, 3.2, db, -48, words, lambda text: text == "uh")
-        self.assertEqual((start, end), (3.0, 3.45), "out to the silence on both sides, across the short dip")
-        start, end = sounds.widen(3.1, 3.2, db, -48, [["after", 3.4, 4.2]])
-        self.assertEqual(end, 3.4, "never into a word")
+    def speech_with_a_throat_cleared(self):
+        """Six seconds: speech, a throat cleared from 3.0 to 3.38 s glued to it, speech again.
+        The samples of the throat clearing are 0.9, the rest 0.3, so a stand-in model can hear it."""
+        samples = np.full(6 * 16000, 0.3, np.float32)
+        samples[int(3.0 * 16000):int(3.38 * 16000)] = 0.9
+        db = np.full(600, -20.0)
+        db[300:340] = -15.0
+        for dip in (300, 340):  # the level drops briefly where one sound gives way to the other
+            db[dip - 2:dip + 2] = -40.0
+        db[100:120] = db[450:470] = -40.0  # and between syllables
+        return samples, db
 
-    def test_a_place_never_reaches_far(self):
-        db = np.full(1000, -20.0)  # loud everywhere
-        start, end = sounds.widen(5.0, 5.1, db, -48)
-        self.assertEqual((start, end), (round(5.0 - sounds.REACH, 2), round(5.1 + sounds.REACH, 2)))
+    def test_the_dips_of_the_level_are_where_sound_may_be_cut(self):
+        _samples, db = self.speech_with_a_throat_cleared()
+        found = sounds.edges(db, -48, 2.2, 3.8)
+        self.assertIn(2.98, [round(e, 2) for e in found])
+        self.assertIn(3.38, [round(e, 2) for e in found])
+
+    def test_the_shortest_stretch_that_takes_the_throat_clearing_away_is_cut(self):
+        samples, db = self.speech_with_a_throat_cleared()
+        hears = lambda audio: 0.99 if (audio > 0.8).any() else 0.05
+        start, end = sounds.narrow(samples, db, -48, 3.1, 3.2, hears)
+        self.assertAlmostEqual(start, 2.98, delta=0.03)
+        self.assertAlmostEqual(end, 3.38, delta=0.03)
+        self.assertLess(end - start, 0.5, "none of the speech around it")
+
+    def test_a_place_that_cannot_be_cut_out_cleanly_is_dropped(self):
+        samples, db = self.speech_with_a_throat_cleared()
+        self.assertIsNone(sounds.narrow(samples, db, -48, 3.1, 3.2, lambda audio: 0.9))
 
 
 class Candidates(unittest.TestCase):

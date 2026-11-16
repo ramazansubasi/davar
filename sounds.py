@@ -4,8 +4,10 @@ A throat being cleared in the middle of speech is hard to tell from speech by it
 or its pitch, and the transcript often writes a word over it. Google's YAMNet, a model
 trained on two million sound clips, describes every second of sound with 1024 numbers;
 a small classifier trained on throat clearings marked by ear (models/throat_clearing.json)
-picks the most likely moments from those numbers. They become unticked candidates in the
-Rough Cut list: only a listener decides.
+picks the most likely moments from those numbers. What exactly to cut is found by trying:
+the shortest stretch between two dips of the level whose removal leaves the model hearing
+no throat clearing. They become unticked candidates in the Rough Cut list: only a listener
+decides.
 
 YAMNet (Apache 2.0) is downloaded once, on first use, and checked against its fingerprint.
 It runs with onnxruntime, which comes with faster-whisper.
@@ -32,9 +34,8 @@ OFFSETS = (0.0, 0.12, 0.24, 0.36)  # run four times, shifted, for a description 
 PER_HOUR = 25  # places offered for an hour of video, at most
 LIKELY = 0.5  # and only places the classifier finds at least this likely
 PLACE_GAP = 2.0  # seconds; places closer than this are one
-REACH = 0.6  # seconds a found sound may reach on each side of where it was pinned
+SEARCH = 0.8  # seconds on each side of a place searched for where its sound begins and ends
 SHORTEST = 0.15  # seconds
-BRIDGE = 0.1  # seconds; a dip in the level shorter than this does not end a sound
 
 
 def model_path():
@@ -83,14 +84,20 @@ def classifier():
     return np.array(data["weights"], np.float32), float(data["bias"])
 
 
-def describe(samples, model, progress=None):
-    """Start times and YAMNet descriptions (1024 numbers) of the sound, one every 0.12 s."""
+def open_model(model):
+    """A function that gives the YAMNet descriptions of a piece of sound."""
     try:
         import onnxruntime
     except ImportError:
         raise DavarError(_("the sound model needs onnxruntime. Install it with: pip install onnxruntime"))
     session = onnxruntime.InferenceSession(str(model), providers=["CPUExecutionProvider"])
     name = session.get_inputs()[0].name
+    return lambda audio: session.run(None, {name: np.asarray(audio, np.float32)})[1]
+
+
+def describe(samples, run, progress=None):
+    """Start times and YAMNet descriptions (1024 numbers) of the sound, one every 0.12 s.
+    `run` is what open_model gives."""
     samples = np.asarray(samples, np.float32)
     piece = SAMPLE_RATE * 60  # a minute at a time, with a second more so nothing is lost at the joins
     hop = int(STEP * SAMPLE_RATE)
@@ -99,7 +106,7 @@ def describe(samples, model, progress=None):
     done = 0
     for offset in OFFSETS:
         for first in range(int(offset * SAMPLE_RATE), len(samples), piece):
-            described = session.run(None, {name: samples[first:first + piece + SAMPLE_RATE]})[1]
+            described = run(samples[first:first + piece + SAMPLE_RATE])
             for k, row in enumerate(described):
                 if k * hop < piece or first + piece >= len(samples):
                     starts.append((first + k * hop) / SAMPLE_RATE)
@@ -139,47 +146,68 @@ def places(starts, scores, count, usable=lambda moment: True):
     return [(start, end, best) for start, end, best, _moment in sorted(chosen)]
 
 
-def widen(start, end, db, threshold, words=(), is_filler=lambda text: False):
-    """Grow a pinned place to the whole sound: up to silence, to the next or previous real word,
-    or REACH seconds, whichever comes first."""
-    first, last = start - REACH, end + REACH
-    for text, word_start, word_end in words:
-        if is_filler(text):
+def edges(db, threshold, start, end):
+    """Where the sound may be cut between `start` and `end` (seconds): the two ends and every dip
+    of the level, a moment quieter than the 30 ms around it and either silent or 6 dB below the
+    loudest moment of the 150 ms on each side. Syllables, and a throat being cleared, lie between dips."""
+    first, last = max(int(start / WINDOW), 0), min(int(end / WINDOW), len(db))
+    found = [first]
+    for i in range(first + 3, last - 3):
+        if db[i] > db[i - 3:i + 4].min():
             continue
-        if word_end <= start + 0.05:
-            first = max(first, word_end)
-        if word_start >= end - 0.05:
-            last = min(last, word_start)
-    def reach(k, direction, limit):
-        """Step outward while there is sound; a dip shorter than BRIDGE does not end it."""
-        edge, quiet = k, 0
-        while 0 <= k + direction < len(db) and (k + direction) * WINDOW * direction <= limit * direction + 1e-9:
-            k += direction
-            quiet = quiet + 1 if db[k] <= threshold else 0
-            if quiet > BRIDGE / WINDOW:
-                break
-            if not quiet:
-                edge = k
-        return edge
-    start = max(reach(int(start / WINDOW), -1, first) * WINDOW, first)
-    end = min((reach(int(end / WINDOW), 1, last) + 1) * WINDOW, last)
-    if end - start < SHORTEST:
-        middle = (start + end) / 2
-        start, end = middle - SHORTEST / 2, middle + SHORTEST / 2
-    return round(start, 2), round(end, 2)
+        left, right = db[max(i - 15, 0):i].max(), db[i:i + 15].max()
+        if (db[i] < threshold or (left - db[i] >= 6 and right - db[i] >= 6)) and i - found[-1] >= 4:
+            found.append(i)
+    if last - found[-1] < 4:
+        found.pop()
+    return [i * WINDOW for i in found + [last]]
 
 
-def find_throat_clearing(samples, db, threshold, words=(), is_filler=lambda text: False,
-                         usable=lambda moment: True, progress=None):
-    """Likely throat clearings as (start, end, score), about PER_HOUR an hour, best first."""
+def narrow(samples, db, threshold, start, end, hears):
+    """The stretch to cut for a place pinned between `start` and `end`, or None.
+
+    Every stretch between two dips near the place is tried: it is taken out of the three
+    seconds around the place and `hears(audio)` says how surely a throat is still being cleared
+    in what is left. The shortest stretch whose removal brings that below LIKELY is the one;
+    so nothing of the words around it is cut.
+    """
+    middle = (start + end) / 2
+    cuts = edges(db, threshold, middle - SEARCH, middle + SEARCH)
+    low = max(int((middle - 1.5) * SAMPLE_RATE), 0)
+    high = min(int((middle + 1.5) * SAMPLE_RATE), len(samples))
+    tried = []
+    for i, first in enumerate(cuts):
+        for last in cuts[i + 1:i + 6]:
+            if not SHORTEST - 0.03 <= last - first <= 0.8 or last < start - 0.25 or first > end + 0.25:
+                continue
+            a, b = int(first * SAMPLE_RATE), int(last * SAMPLE_RATE)
+            left = hears(np.concatenate([samples[low:a], samples[b:high]]))
+            tried.append((left, last - first, round(first, 2), round(last, 2)))
+    gone = [t for t in tried if t[0] < LIKELY]
+    if not gone:
+        return None
+    _left, _length, first, last = min(gone, key=lambda t: (t[1], t[0]))
+    return first, last
+
+
+def find_throat_clearing(samples, db, threshold, usable=lambda moment: True, progress=None):
+    """Likely throat clearings as (start, end, score), about PER_HOUR an hour, best first.
+    A place whose throat clearing cannot be cut out cleanly is not offered."""
     def step(share, text):
         if progress:
             progress(share, text)
 
     model = ensure_model(lambda share: step(0.3 * share, _("Downloading the sound model (16 MB, only once)")))
-    starts, descriptions = describe(samples, model, lambda share: step(0.3 + 0.7 * share,
-                                                                       _("Listening for throat clearing")))
+    run = open_model(model)
+    starts, descriptions = describe(samples, run, lambda share: step(0.3 + 0.6 * share,
+                                                                     _("Listening for throat clearing")))
     weights, bias = classifier()
     hours = len(samples) / SAMPLE_RATE / 3600
     found = places(starts, score(descriptions, weights, bias), max(int(round(hours * PER_HOUR)), 3), usable)
-    return [(*widen(start, end, db, threshold, words, is_filler), best) for start, end, best in found]
+    step(0.9, _("Finding where each throat clearing begins and ends"))
+    result = []
+    for start, end, best in found:
+        stretch = narrow(samples, db, threshold, start, end, lambda audio: float(score(run(audio), weights, bias).max()))
+        if stretch is not None:
+            result.append((*stretch, best))
+    return result
