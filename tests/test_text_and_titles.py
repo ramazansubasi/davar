@@ -15,11 +15,18 @@ import i18n  # noqa: E402
 import lang_tr  # noqa: E402
 import titles  # noqa: E402
 import transcript  # noqa: E402
-from common import DavarError  # noqa: E402
+from common import VERSION, DavarError  # noqa: E402
 
 WORDS = [["Hâlâ", 5.0, 5.2], ["top", 5.2, 5.5], ["sen", 5.5, 5.7], ["de", 5.7, 5.8],
          ["Tuzda", 6.0, 6.4], ["siyasetinde", 6.4, 7.0], ["Bülent", 7.1, 7.4],
          ["Akbörse'nin,", 7.4, 8.0]]
+
+
+class Version(unittest.TestCase):
+    def test_changelog_starts_with_the_current_version(self):
+        text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        first = next(line for line in text.splitlines() if line.startswith("## "))
+        self.assertEqual(first.split()[1], VERSION, "add an entry to CHANGELOG.md when the version changes")
 
 
 class Dictionary(unittest.TestCase):

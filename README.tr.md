@@ -174,6 +174,10 @@ python -m unittest discover tests
 
 Yeni iş akışı ya da yeni dil eklemek için [README.md](README.md) içindeki "Development" bölümüne bak.
 
+## Değişiklikler
+
+Her sürümde nelerin değiştiği [CHANGELOG.md](CHANGELOG.md) dosyasında (İngilizce).
+
 ## Lisans
 
 [MIT](LICENSE)

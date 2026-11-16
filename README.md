@@ -182,6 +182,10 @@ python -m unittest discover tests
 
 **Adding a language.** Source strings are English. Create `lang_<code>.py` with a `TRANSLATIONS` dict (see `lang_tr.py`) and add the language to `LANGUAGES` in `i18n.py`. A test fails if a string used in the code has no Turkish translation.
 
+## Changes
+
+What changed in each version is listed in [CHANGELOG.md](CHANGELOG.md).
+
 ## Contributing
 
 Bug reports and suggestions are welcome as issues. Trials with different speakers, languages and recording conditions are especially valuable.

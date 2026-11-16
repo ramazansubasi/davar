@@ -27,7 +27,8 @@ import i18n  # noqa: E402
 import roughcut  # noqa: E402
 import titles  # noqa: E402
 import transcript  # noqa: E402
-from common import SAMPLE_RATE, DavarError, format_time, parse_ranges, parse_time, run  # noqa: E402
+from common import (SAMPLE_RATE, VERSION, DavarError, format_time, parse_ranges,  # noqa: E402
+                    parse_time, run)
 from i18n import N_, _  # noqa: E402
 
 try:
@@ -1130,7 +1131,7 @@ PAGES = [AudioPage, TranscribePage, RoughCutPage, MultiCamPage, ContentAnalysisP
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Davar")
+        self.title(f"Davar {VERSION}")
         self.configure(bg=BACKGROUND)
         self.geometry("1180x900")
         self.minsize(1040, 800)
@@ -1185,7 +1186,8 @@ class App(tk.Tk):
         left = ttk.Frame(top, style="Panel.TFrame")
         left.pack(side="left")
         ttk.Label(left, text="DAVAR", style="Logo.TLabel").pack(anchor="w")
-        ttk.Label(left, text=_("Pre-edit helper for DaVinci Resolve"), style="PanelMuted.TLabel").pack(anchor="w")
+        ttk.Label(left, text=_("Pre-edit helper for DaVinci Resolve") + f"  ·  v{VERSION}",
+                  style="PanelMuted.TLabel").pack(anchor="w")
         row = ttk.Frame(left, style="Panel.TFrame")
         row.pack(anchor="w", pady=(8, 0))
         ttk.Label(row, text=_("Interface"), style="PanelMuted.TLabel").pack(side="left")
