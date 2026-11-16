@@ -99,5 +99,5 @@ def parse_ranges(text):
 
 def format_time(seconds):
     """123.456 -> "2:03.46"."""
-    minutes, rest = divmod(seconds, 60)
+    minutes, rest = divmod(round(seconds, 2), 60)  # rounded first, or 299.996 reads 4:60.00
     return f"{int(minutes)}:{rest:05.2f}"

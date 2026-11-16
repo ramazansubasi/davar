@@ -187,23 +187,34 @@ TRANSLATIONS = {
     "there is too little speech to tell the speakers apart.":
         "konuşmacıları ayırt etmek için konuşma çok az.",
     "Name titles kept on the timeline: {n}": "Çizelgede korunan KJ: {n}",
-    "Jump cuts   : the framing changes at {changes} of {cuts} cuts (closer framing "
-    "{percent:.0f}%)":
-        "Sıçramalar  : {cuts} kesimin {changes} tanesinde kadraj değişiyor (yakın kadraj %{percent:.0f})",
+    "Framing     : changes {changes} times, at speaker changes and about every {every:.0f} s "
+    "in long answers; closer framing ({percent:.0f}%) {share:.0f}% of the time":
+        "Kadraj      : {changes} kez değişiyor; konuşmacı değişince ve uzun cevaplarda yaklaşık {every:.0f} "
+        "sn'de bir. Yakın kadraj (%{percent:.0f}) sürenin %{share:.0f} kadarı",
     "In Resolve, keep “Use sizing information” ticked when importing, or the "
     "closer framings are lost.":
         "Resolve'da içeri alırken “Use sizing information” işaretli kalsın; yoksa yakın kadrajlar kaybolur.",
-    "Hide jump cuts": "Sıçramaları gizle",
-    "With one camera every cut makes the people jump. At some cuts the picture changes "
-    "to a closer framing and back, so that it looks like a second camera. Cuts closer "
-    "together than the shortest shot keep their framing.":
-        "Tek kamerada her kesim konuşanları sıçratır. Bazı kesimlerde görüntü yakın bir kadraja geçip "
-        "geri döner; böylece ikinci bir kamera varmış gibi görünür. En kısa çekimden daha sık gelen "
-        "kesimler kadrajını korur.",
+    "Move closer to the speaker (hides jump cuts)": "Konuşana yaklaş (sıçramaları gizler)",
+    "As with a second camera: during a long answer the picture moves closer to the speaker, "
+    "in quick exchanges it stays on everyone. Inside a long answer the framing changes now "
+    "and then, at the cut that jumps most; other cuts keep their framing. Who speaks is "
+    "found from the transcript; who sits where is taken from the Titles page.":
+        "İkinci bir kamera varmış gibi: uzun bir cevapta görüntü konuşana yaklaşır, kısa atışmalarda "
+        "herkesi gösterir. Uzun cevabın içinde kadraj arada bir, en çok sıçrayan kesimde değişir; öteki "
+        "kesimler kadrajını korur. Kimin konuştuğu dökümden bulunur; kimin nerede oturduğu Yazılar "
+        "sayfasından alınır.",
     "Closer framing": "Yakın kadraj",
-    "percent of the picture; 115 is a usual choice": "görüntünün yüzdesi; 115 yaygın bir seçim",
-    "Shortest shot": "En kısa çekim",
-    "seconds a framing is held at least": "bir kadrajın en az kaç saniye kalacağı",
+    "percent of the picture; above 130 the picture grows soft":
+        "görüntünün yüzdesi; 130'un üstünde görüntü yumuşar",
+    "Change inside a long answer every": "Uzun cevapta kadraj değişimi",
+    "seconds": "saniyede bir",
+    "Run Transcribe first to move closer to the speaker": "Konuşana yaklaşmak için önce İlk Analiz'i çalıştır",
+    "No speakers are written on the Titles page: two are assumed, and the closer framing "
+    "stays in the middle. Write them there as Name | Title | left to move toward the speaker.":
+        "Yazılar sayfasında konuşmacı yazılı değil: iki kişi varsayılır ve yakın kadraj ortada kalır. "
+        "Konuşana doğru kaymak için onları orada Ad Soyad | Unvan | sol biçiminde yaz.",
+    "Speakers from the Titles page: {list}": "Yazılar sayfasındaki konuşmacılar: {list}",
+    "middle": "orta",
 
     # --- interface: frame -----------------------------------------------------
     "Pre-edit helper for DaVinci Resolve": "DaVinci Resolve için kurgu öncesi yardımcı",

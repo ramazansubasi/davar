@@ -152,22 +152,24 @@ class Timeline(unittest.TestCase):
             video, timeline = Path(folder) / "talk.mp4", Path(folder) / "cut.fcpxml"
             roughcut.write_fcpxml(timeline, video, INFO, self.PARTS)
             self.assertNotIn("lane", timeline.read_text(encoding="utf-8"))
+            wide = roughcut.WIDE
             self.assertEqual(roughcut.read_timeline(timeline, video, INFO),
-                             {"parts": self.PARTS, "overlays": [], "zooms": [1.0, 1.0, 1.0]})
+                             {"parts": self.PARTS, "overlays": [], "framings": [wide, wide, wide]})
 
     def test_closer_framings_are_written_before_the_titles_and_read_back(self):
         with tempfile.TemporaryDirectory() as folder:
             video, title, timeline = (Path(folder) / name for name in ("talk.mp4", "lowerthird_a.mov", "cut.fcpxml"))
-            roughcut.write_fcpxml(timeline, video, INFO, self.PARTS, zooms=[1.0, 1.15, 1.15],
+            left, middle = (1.25, 12.5, -3.52), (1.15, 0.0, 0.0)
+            roughcut.write_fcpxml(timeline, video, INFO, self.PARTS, framings=[middle, left, left],
                                   overlays=[{"path": title, "at": 1200, "frames": 180}])
             text = timeline.read_text(encoding="utf-8")
-            self.assertEqual(text.count('<adjust-transform scale="1.15 1.15"/>'), 2)
+            self.assertEqual(text.count('<adjust-transform position="12.5 -3.52" scale="1.25 1.25"/>'), 2)
+            self.assertEqual(text.count('<adjust-transform scale="1.15 1.15"/>'), 1, "no position when centred")
             self.assertLess(text.index("adjust-transform", text.index('start="1156/30s"')), text.index('lane="1"'),
                             "the picture's own adjustment comes before the clip above it")
             back = roughcut.read_timeline(timeline, video, INFO)
-            self.assertEqual(back["zooms"], [1.0, 1.15, 1.15])
+            self.assertEqual(back["framings"], [middle, left, left])
             self.assertEqual(len(back["overlays"]), 1)
-
 
     def test_another_videos_timeline_is_not_taken(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -181,23 +183,43 @@ class Timeline(unittest.TestCase):
 
 
 class Framings(unittest.TestCase):
-    def test_the_framing_changes_at_the_first_cut_after_the_shortest_shot(self):
-        # parts of 2, 3, 1, 5, 1 and 1 seconds at 30 frames per second
-        lengths = [2, 3, 1, 5, 1, 1]
+    WIDE = roughcut.WIDE
+
+    def parts(self, count, gaps=None):
+        """`count` parts of two seconds at 30 frames per second, half a second cut between them
+        unless `gaps` says otherwise (part index -> seconds cut before it). Also their start times."""
         parts, frame = [], 0
-        for seconds in lengths:
-            parts.append((frame, frame + seconds * 30))
-            frame += seconds * 30 + 15  # half a second cut away each time
-        self.assertEqual(roughcut.framings(parts, 30.0, 1.15, 4.0), [1.0, 1.0, 1.15, 1.15, 1.0, 1.0],
-                         "wide for 5 s, close for 6 s, then wide again; cuts in between keep the framing")
+        for n in range(count):
+            frame += round((gaps or {}).get(n, 0.5 if n else 0) * 30)
+            parts.append((frame, frame + 60))
+            frame += 60
+        return parts, [start / 30 for start, _end in parts]
 
-    def test_one_part_or_none(self):
-        self.assertEqual(roughcut.framings([(0, 300)], 30.0), [1.0])
-        self.assertEqual(roughcut.framings([], 30.0), [])
+    def test_a_long_answer_is_framed_closer_and_changes_at_the_biggest_jump(self):
+        parts, starts = self.parts(43, gaps={23: 1.5})  # three short parts of the host, then 80 s of the guest
+        turns = [(0.0, starts[3], 0), (starts[3], starts[-1] + 2, 1)]
+        found = roughcut.framings(parts, 30.0, turns, ["left", "right"], 1.25)
+        close = roughcut.close_framing(1.25, "right", 1920, 1080)
+        self.assertEqual(found[:5], [self.WIDE] * 5, "the host's 6 s stay on everyone; the guest's start too")
+        self.assertEqual(found[5:23], [close] * 18, "4 s into the answer the picture moves to the guest")
+        self.assertEqual(found[23:38], [self.WIDE] * 15, "after half a minute, at the cut where most was removed")
+        self.assertEqual(found[38:], [close] * 5, "and back; nothing changes in the last 8 s")
 
-    def test_every_cut_changes_when_the_shots_are_long(self):
-        parts = [(0, 150), (160, 310), (320, 470)]
-        self.assertEqual(roughcut.framings(parts, 30.0, 1.2, 4.0), [1.0, 1.2, 1.0])
+    def test_quick_exchanges_stay_on_everyone(self):
+        parts, starts = self.parts(30)
+        turns = [(starts[n], starts[n] + 7.5, (n // 3) % 2) for n in range(0, 30, 3)]  # 6 s each
+        self.assertEqual(roughcut.framings(parts, 30.0, turns, ["left", "right"]), [self.WIDE] * 30)
+
+    def test_closer_framing_moves_toward_the_speaker_and_never_past_the_edge(self):
+        self.assertEqual(roughcut.close_framing(1.25, "left", 1920, 1080), (1.25, 12.5, -3.52))
+        self.assertEqual(roughcut.close_framing(1.25, "right", 1920, 1080), (1.25, -12.5, -3.52))
+        self.assertEqual(roughcut.close_framing(1.25, "centre", 1920, 1080), (1.25, 0.0, 0.0))
+        self.assertEqual(roughcut.close_framing(1.25, None, 1920, 1080), (1.25, 0.0, 0.0))
+
+    def test_nothing_to_frame(self):
+        self.assertEqual(roughcut.framings([], 30.0, []), [])
+        parts, _starts = self.parts(10)
+        self.assertEqual(roughcut.framings(parts, 30.0, []), [self.WIDE] * 10, "no speaker known")
 
 
 if __name__ == "__main__":

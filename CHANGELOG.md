@@ -14,12 +14,16 @@
   - Davar opens with the video and the page last worked on, and a video it wrote from another one starts with the settings of its source.
   - Each page has a **Back to defaults** button, and the settings survive a change of the interface language.
 - **Titles: names placed on the timeline.** Write the speakers in the order they first speak; Davar tells the voices apart and puts each lower third on the track above the video, a few seconds after that person first speaks. The names go into the Rough Cut timeline when there is one, the log shows the words spoken at each place, a time can be given by hand (`Name | Title | 0:41`), and running Rough Cut again keeps the names.
-- **Rough Cut: hide jump cuts.** The picture changes between the whole frame and a closer framing at cuts, so that a cut looks like a change of camera. The closer framing and the shortest time a framing is held can be set; name titles already on the timeline stay.
+- **Rough Cut: move closer to the speaker.** To hide jump cuts the timeline is framed as with a second camera: closer to whoever gives a long answer, toward the side they sit on, and on everyone during quick exchanges. Inside a long answer the framing changes about every half minute, at the cut that jumps most. Who speaks comes from the transcript, who sits where from the Titles page; name titles already on the timeline stay.
 - **Titles: a place for each name.** A line may say where its name goes (`Name | Title | right`), for people sitting on different sides; the place chosen on the page is for the lines that say nothing.
 
 ### Changed
 
 - The workflows after Audio moved down by one: Transcribe is now 03, Rough Cut 04, Titles 07, Social Clips 09.
+
+### Fixed
+
+- A time just under a whole minute was shown as 4:60.00 instead of 5:00.00.
 
 ## 0.2.0 - 2026-11-16
 

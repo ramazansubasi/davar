@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import audio  # noqa: E402
 import roughcut  # noqa: E402
 import transcript  # noqa: E402
-from common import SAMPLE_RATE, WINDOW  # noqa: E402
+from common import SAMPLE_RATE, WINDOW, format_time  # noqa: E402
 
 
 def tone(seconds, pitch, formant, rng, level=0.3, rate=SAMPLE_RATE):
@@ -380,6 +380,13 @@ class AudioMatching(unittest.TestCase):
                                for _ in range(4)])
         self.assertFalse(audio.is_match(audio.find_position(self.video, clip)))
 
+
+
+class TimeFormat(unittest.TestCase):
+    def test_times_are_rounded_before_they_are_split(self):
+        self.assertEqual(format_time(123.456), "2:03.46")
+        self.assertEqual(format_time(299.996), "5:00.00", "never 4:60.00")
+        self.assertEqual(format_time(0), "0:00.00")
 
 if __name__ == "__main__":
     unittest.main()

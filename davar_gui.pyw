@@ -29,6 +29,7 @@ import i18n  # noqa: E402
 import memory  # noqa: E402
 import picture  # noqa: E402
 import roughcut  # noqa: E402
+import speakers  # noqa: E402
 import titles  # noqa: E402
 import transcript  # noqa: E402
 from common import (SAMPLE_RATE, VERSION, DavarError, format_time, parse_ranges,  # noqa: E402
@@ -497,7 +498,7 @@ class RoughCutPage(Page):
                      "In Resolve: File → Import → Timeline…")
     key = "rough_cut"
     general = ("silence", "hesitations", "noises", "review_file", "ask", "min_silence", "pad_before",
-               "pad_after", "min_hesitation", "fillers", "punch", "zoom", "shortest_shot")
+               "pad_after", "min_hesitation", "fillers", "punch", "closeup", "every")
     per_video = ("keep_from", "keep_to", "remove")
 
     def build(self, parent):
@@ -512,8 +513,8 @@ class RoughCutPage(Page):
         self.min_hesitation = tk.DoubleVar(value=0.30)
         self.fillers = tk.StringVar()
         self.punch = tk.BooleanVar(value=False)
-        self.zoom = tk.DoubleVar(value=round(roughcut.PUNCH_IN * 100))
-        self.shortest_shot = tk.DoubleVar(value=roughcut.SHORTEST_SHOT)
+        self.closeup = tk.DoubleVar(value=round(roughcut.CLOSE_UP * 100))
+        self.every = tk.DoubleVar(value=roughcut.CHANGE_EVERY)
         self.keep_from = tk.StringVar()
         self.keep_to = tk.StringVar()
         self.remove = tk.StringVar()
@@ -563,18 +564,22 @@ class RoughCutPage(Page):
         self.transcript_status = ttk.Label(g, text="", style="CardMuted.TLabel", wraplength=700, justify="left")
         self.transcript_status.pack(anchor="w", pady=(6, 0))
 
-        g = self.card(parent, self.punch, _("Hide jump cuts"),
-                      _("With one camera every cut makes the people jump. At some cuts the picture changes "
-                        "to a closer framing and back, so that it looks like a second camera. Cuts closer "
-                        "together than the shortest shot keep their framing."))
+        g = self.card(parent, self.punch, _("Move closer to the speaker (hides jump cuts)"),
+                      _("As with a second camera: during a long answer the picture moves closer to the speaker, "
+                        "in quick exchanges it stays on everyone. Inside a long answer the framing changes now "
+                        "and then, at the cut that jumps most; other cuts keep their framing. Who speaks is "
+                        "found from the transcript; who sits where is taken from the Titles page."))
         for row, (label, variable, low, high, step, hint) in enumerate((
-                (_("Closer framing"), self.zoom, 105, 130, 1, _("percent of the picture; 115 is a usual choice")),
-                (_("Shortest shot"), self.shortest_shot, 2, 20, 0.5, _("seconds a framing is held at least")))):
+                (_("Closer framing"), self.closeup, 105, 140, 1,
+                 _("percent of the picture; above 130 the picture grows soft")),
+                (_("Change inside a long answer every"), self.every, 15, 120, 5, _("seconds")))):
             ttk.Label(g, text=label, style="Card.TLabel").grid(row=row, column=0, sticky="w", padx=(0, 12), pady=(8, 0))
-            ttk.Spinbox(g, textvariable=variable, from_=low, to=high, increment=step, width=6).grid(
-                row=row, column=1, sticky="w", pady=(8, 0))
+            ttk.Spinbox(g, textvariable=variable, from_=low, to=high, increment=step, width=6,
+                        format="%.0f").grid(row=row, column=1, sticky="w", pady=(8, 0))
             ttk.Label(g, text=hint, style="CardMuted.TLabel").grid(row=row, column=2, sticky="w", padx=(14, 0),
                                                                    pady=(8, 0))
+        self.seating = ttk.Label(g, text="", style="CardMuted.TLabel", wraplength=680, justify="left")
+        self.seating.grid(row=2, column=0, columnspan=3, sticky="w", pady=(8, 0))
         self.punch.set(False)  # let the card grey out its boxes
 
         g = self.card(parent, None, _("Applying"))
@@ -620,21 +625,44 @@ class RoughCutPage(Page):
                 text=_("No transcript for this video: hesitations are found from the audio only and "
                        "filler words cannot be searched."))
         self.excerpt_button.configure(state="normal" if saved else "disabled")
+        self.seating.configure(text=self._seating_text())
         if self._filler_list() and not saved:
             return _("Run Transcribe first to use filler words")
+        if self.punch.get() and not saved:
+            return _("Run Transcribe first to move closer to the speaker")
         if not (self.silence.get() or self.hesitations.get() or self.noises.get()
                 or self._filler_list() or self._trimming()):
             return _("Tick at least one thing to cut")
         return ""
 
+    def _seated(self):
+        """The speakers written on the Titles page, in the order they first speak: (name, place)."""
+        page = next((p for p in self.app.pages if isinstance(p, TitlesPage)), None)
+        try:
+            people = titles.parse_people(page._rows()) if page is not None else []
+        except DavarError:
+            people = []
+        return [(person["name"], person["position"]) for person in people]
+
+    def _seating_text(self):
+        seated = self._seated()
+        if not seated:
+            return _("No speakers are written on the Titles page: two are assumed, and the closer framing "
+                     "stays in the middle. Write them there as Name | Title | left to move toward the speaker.")
+        names = {"left": _("left"), "right": _("right")}
+        return _("Speakers from the Titles page: {list}").format(list=", ".join(
+            f"{name} ({names.get(place, _('middle'))})" for name, place in seated))
+
     def read_settings(self):
         video = self.app.video_path()
         saved = self.app.transcript()
+        seated = self._seated()
         return dict(
             output=self.app.output_folder() / (video.stem + "_cut.fcpxml"),
             review=self.review_file.get(), ask=self.ask.get(),
-            punch_in=float(self.zoom.get()) / 100 if self.punch.get() else None,
-            shortest_shot=float(self.shortest_shot.get()),
+            close_up=float(self.closeup.get()) / 100 if self.punch.get() else None,
+            places=[place for _name, place in seated], speakers=len(seated) or 2,
+            every=float(self.every.get()),
             analysis=dict(
                 video=video, silence=self.silence.get(), hesitations=self.hesitations.get(),
                 noises=self.noises.get(),
@@ -648,7 +676,12 @@ class RoughCutPage(Page):
         )
 
     def run(self, settings, progress):
-        return {"state": roughcut.analyze(progress=progress, **settings["analysis"]), "settings": settings}
+        state = roughcut.analyze(progress=progress, **settings["analysis"])
+        if settings["close_up"] and state["words"]:  # done here, away from the window, as it takes a while
+            progress(95, _("Listening for who speaks when"))
+            state["turns"] = speakers.find_turns(state["samples"], state["words"], settings["speakers"],
+                                                 state["language"])
+        return {"state": state, "settings": settings}
 
     def finish(self, result):
         state, settings = result["state"], result["settings"]
@@ -656,7 +689,8 @@ class RoughCutPage(Page):
             if not ReviewWindow(self.app, state).approved:
                 return None
         return roughcut.apply(state, output=settings["output"], review=settings["review"],
-                              punch_in=settings["punch_in"], shortest_shot=settings["shortest_shot"])
+                              close_up=settings["close_up"], places=settings["places"],
+                              speakers=settings["speakers"], every=settings["every"])
 
     def result_text(self, result):
         return roughcut.report(result, detailed=False)
