@@ -8,6 +8,11 @@
   - **Reframe to 16:9.** Cuts the sides of a picture wider than 16:9, from the left, the right or both, so it fills the frame with no black bars.
   - **Lock the frame.** For a camera on a tripod. While a phone hunts for focus the whole picture grows, shrinks and hops, and over a long recording the frame creeps by several pixels. Every frame is lined up with one reference frame, so the background stands still and cuts show less.
   - The audio is copied untouched, and a transcript already made is carried over to the new video.
+- **Settings are remembered.** Nothing has to be entered again when Davar is opened:
+  - General settings (thresholds, paddings, filler words, ticked options, speaker names) come back as last used.
+  - Settings that belong to one video (trim times, the range of a social clip, separate audio files, the output folder) are kept with that video and come back when it is chosen again.
+  - Davar opens with the video and the page last worked on, and a video it wrote from another one starts with the settings of its source.
+  - Each page has a **Back to defaults** button, and the settings survive a change of the interface language.
 
 ### Changed
 

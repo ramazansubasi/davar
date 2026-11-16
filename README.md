@@ -57,6 +57,16 @@ winget install Gyan.FFmpeg
 
 Double-click `Davar.bat`. Choose the video (and an output folder if you like) at the top, pick a workflow on the left, tick the settings and press **Start**. Progress and results appear in the log at the bottom. Dropping a video onto `Davar.bat` opens the window with that video selected.
 
+**Settings are remembered.** Nothing has to be entered twice, and there is nothing to save or open:
+
+- General settings (thresholds, paddings, filler words, ticked options, speaker names) come back as you last left them, for every video.
+- Settings that belong to one video (trim times, the range of a social clip, separately recorded audio files, the output folder) are kept with that video and come back when you choose it again. A new video starts with those boxes empty.
+- Davar opens with the video and the page you last worked on.
+- A video Davar wrote from another one (`talk_picture.mp4` from `talk.mp4`) starts with the settings of its source.
+- **Back to defaults** on each page puts the general settings back to what Davar ships with.
+
+They are kept in `.davar/settings.json` in your home folder, on this computer only; a video that is renamed or moved starts fresh.
+
 Outside Windows:
 
 ```bash
@@ -199,7 +209,7 @@ The computational parts (silence and hesitation detection, candidate selection, 
 python -m unittest discover tests
 ```
 
-**Adding a workflow.** In `davar_gui.pyw` write a class derived from `Page` and add it to the `PAGES` list; the video and output folder pickers, the Start button, the progress bar and the log come for free. Planned workflows live in the same file as stubs derived from `Planned`.
+**Adding a workflow.** In `davar_gui.pyw` write a class derived from `Page` and add it to the `PAGES` list; the video and output folder pickers, the Start button, the progress bar and the log come for free. List the names of its settings in `general` (remembered as last used) or `per_video` (remembered with the video) and they are kept between sessions; see `memory.py`. Planned workflows live in the same file as stubs derived from `Planned`.
 
 **Adding a language.** Source strings are English. Create `lang_<code>.py` with a `TRANSLATIONS` dict (see `lang_tr.py`) and add the language to `LANGUAGES` in `i18n.py`. A test fails if a string used in the code has no Turkish translation.
 

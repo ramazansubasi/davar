@@ -57,6 +57,16 @@ winget install Gyan.FFmpeg
 
 `Davar.bat` dosyasına çift tıkla. Üstten videoyu (istersen çıktı klasörünü) seç, soldan iş akışını seç, ayarları işaretle, **Başlat**'a bas. İlerleme ve sonuçlar alttaki kayıt bölümünde görünür. Bir videoyu `Davar.bat`'ın üstüne sürükleyip bırakırsan pencere o video seçili açılır.
 
+**Ayarlar hatırlanır.** Hiçbir şeyi iki kez girmen gerekmez; kaydedilecek ya da açılacak bir dosya da yoktur:
+
+- Genel ayarlar (eşikler, paylar, dolgu kelimeleri, işaretli seçenekler, konuşmacı adları) her videoda son bıraktığın gibi gelir.
+- Tek bir videoya ait ayarlar (kırpma zamanları, sosyal klibin aralığı, ayrı kaydedilmiş ses dosyaları, çıktı klasörü) o videoyla birlikte saklanır ve videoyu yeniden seçtiğinde geri gelir. Yeni bir videoda bu kutular boş başlar.
+- Davar, son çalıştığın video ve sayfa ile açılır.
+- Davar'ın başka bir videodan ürettiği video (`konusma.mp4`'ten `konusma_picture.mp4`), kaynağının ayarlarıyla başlar.
+- Her sayfadaki **Varsayılanlara dön** düğmesi genel ayarları Davar'ın ilk hâline getirir.
+
+Ayarlar kullanıcı klasöründeki `.davar/settings.json` dosyasında, yalnızca bu bilgisayarda tutulur; adı ya da yeri değişen video baştan başlar.
+
 ### Komut satırından
 
 Her iş akışı aynı zamanda bir betiktir:

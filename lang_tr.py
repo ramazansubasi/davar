@@ -168,6 +168,9 @@ TRANSLATIONS = {
     "LOG": "KAYIT",
     "WORKFLOW": "İŞ AKIŞI",
     "Start": "Başlat",
+    "Back to defaults": "Varsayılanlara dön",
+    "The settings last used for this video were brought back.":
+        "Bu video için son kullanılan ayarlar geri getirildi.",
     "Show the output in its folder": "Çıktıyı klasörde göster",
     "Davar is ready. Choose a video, then a workflow on the left.":
         "Davar hazır. Bir video seç, soldan iş akışını seç.",

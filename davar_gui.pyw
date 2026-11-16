@@ -4,9 +4,11 @@ Opened by double-clicking Davar.bat. The real work lives in audio.py, transcript
 roughcut.py, titles.py and clips.py.
 
 To add a workflow: write a class derived from Page (build, missing, read_settings,
-run, result_text) and add it to the PAGES list near the bottom.
+run, result_text) and add it to the PAGES list near the bottom. Name its settings in
+`general` and `per_video` and they are remembered between sessions (see memory.py).
 """
 
+import json
 import os
 import queue
 import subprocess
@@ -24,6 +26,7 @@ import audio  # noqa: E402
 import clips  # noqa: E402
 import dictionary  # noqa: E402
 import i18n  # noqa: E402
+import memory  # noqa: E402
 import picture  # noqa: E402
 import roughcut  # noqa: E402
 import titles  # noqa: E402
@@ -57,6 +60,14 @@ def media_types():
             (_("All files"), "*.*")]
 
 
+class Held:
+    """A setting that is not a tk variable (a list of files, a text box) but is read and
+    filled like one, so that it can be remembered with the others."""
+
+    def __init__(self, get, set):
+        self.get, self.set = get, set
+
+
 class Page(ttk.Frame):
     """One workflow's page. The video, output folder, progress bar and log are shared
     (they sit at the top and bottom of the application); a page holds only its own settings.
@@ -66,6 +77,9 @@ class Page(ttk.Frame):
     description = ""
     ready = True  # False for a workflow that is not written yet
     needs_video = True  # False if it can also run without a selected video
+    key = ""  # the page's name in the settings file
+    general = ()  # settings remembered as last used, whatever the video
+    per_video = ()  # settings remembered with the video they were entered for
 
     def __init__(self, parent, app, number):
         super().__init__(parent, style="Panel.TFrame", padding=(28, 22))
@@ -79,11 +93,18 @@ class Page(ttk.Frame):
         if self.ready:  # the button sits at the top so it stays visible however long the settings grow
             self.start_button = ttk.Button(top, text=_("Start"), style="Main.TButton", command=self._start)
             self.start_button.pack(side="right")
+            if self.general:
+                ttk.Button(top, text=_("Back to defaults"), command=self._back_to_defaults).pack(
+                    side="right", padx=(0, 10))
             self.status = ttk.Label(top, text="", style="PanelMuted.TLabel")
             self.status.pack(side="right", padx=14)
         ttk.Label(self, text=_(self.description), style="PanelMuted.TLabel", wraplength=760,
                   justify="left").pack(anchor="w", pady=(4, 14))
         self.build(self._scroll_area())
+        self.initial = self.values(self.general + self.per_video)  # what a fresh page shows
+        for name in self.initial:
+            if isinstance(getattr(self, name), tk.Variable):
+                getattr(self, name).trace_add("write", lambda *_args: self.app.remember_soon())
 
     def _scroll_area(self):
         """The area holding the settings; scrolls with the mouse wheel when it does not fit."""
@@ -137,6 +158,28 @@ class Page(ttk.Frame):
         """Called in the main window when the work is done; may ask the user something and
         change the result. Returning None means the work was cancelled."""
         return result
+
+    # --- remembered settings -----------------------------------------------------
+    def values(self, names):
+        """The current value of each named setting. One that cannot be read at the moment
+        (a number box in the middle of being typed in) is left out."""
+        found = {}
+        for name in names:
+            try:
+                found[name] = getattr(self, name).get()
+            except (tk.TclError, KeyError):
+                pass
+        return found
+
+    def set_values(self, values):
+        for name, value in values.items():
+            getattr(self, name).set(value)
+        self.refresh_state()
+
+    def _back_to_defaults(self):
+        """The settings shared by every video go back to what Davar starts with. What belongs to
+        the video (trim times and the like) stays."""
+        self.set_values({name: self.initial[name] for name in self.general})
 
     # --- shared pieces ---------------------------------------------------------
     def card(self, parent, variable, title, description=""):
@@ -208,12 +251,16 @@ class AudioPage(Page):
     description = N_("Puts separately recorded audio in its place in the video and sets the loudness. "
                      "The picture is not re-encoded; the result is written as a new video and the next "
                      "steps continue with it.")
+    key = "audio"
+    general = ("normalize", "balance", "denoise")
+    per_video = ("clips",)
 
     def build(self, parent):
         self.normalize = tk.BooleanVar(value=True)
         self.balance = tk.BooleanVar(value=False)
         self.denoise = tk.BooleanVar(value=False)
         self.files = []
+        self.clips = Held(lambda: [str(path) for path in self.files], self._set_files)
 
         g = self.card(parent, None, _("Separately recorded audio"),
                       _("A lavalier microphone, an audio recorder or parts recorded afterwards. Davar finds "
@@ -258,12 +305,22 @@ class AudioPage(Page):
             self.files.append(path)
             self.listbox.insert("end", path.name)
         self.refresh_state()
+        self.app.remember_soon()
 
     def _remove(self):
         for i in reversed(self.listbox.curselection()):
             self.listbox.delete(i)
             del self.files[i]
         self.refresh_state()
+        self.app.remember_soon()
+
+    def _set_files(self, paths):
+        """Replace the list; a remembered file that is no longer there is dropped."""
+        self.files.clear()
+        self.listbox.delete(0, "end")
+        for path in paths:
+            if Path(path).is_file():
+                self.add(path)
 
     def missing(self):
         if not (self.files or self.normalize.get() or self.balance.get() or self.denoise.get()):
@@ -278,7 +335,8 @@ class AudioPage(Page):
         return audio.process(progress=progress, **settings)
 
     def finish(self, result):
-        self.app.video.set(str(result["output"]))  # the next steps should work on the new video
+        self.app.continue_with(result["output"])  # the next steps should work on the new video
+        self.clips.set([])  # they are in the new video now
         return result
 
     def result_text(self, result):
@@ -291,6 +349,8 @@ class PicturePage(Page):
     description = N_("Reframes the video to 16:9 and holds a tripod shot still. The picture is re-encoded and "
                      "written as a new video; the audio is not touched, so a transcript already made stays "
                      "valid. The next steps continue with the new video.")
+    key = "picture"
+    general = ("reframe", "position", "lock")
 
     def build(self, parent):
         self.reframe = tk.BooleanVar(value=True)
@@ -328,7 +388,7 @@ class PicturePage(Page):
         return picture.process(progress=progress, **settings)
 
     def finish(self, result):
-        self.app.video.set(str(result["output"]))  # the next steps should work on the new video
+        self.app.continue_with(result["output"])  # the next steps should work on the new video
         return result
 
     def result_text(self, result):
@@ -340,6 +400,8 @@ class TranscribePage(Page):
     name = N_("Transcribe")
     description = N_("Transcribes the speech once, word by word with timing, and saves it next to the "
                      "video. The later workflows use this; the same video is not transcribed again.")
+    key = "transcribe"
+    general = ("srt", "text", "model")  # the speech language is kept apart: other pages read it too
 
     def build(self, parent):
         settings = i18n.load_settings()
@@ -433,6 +495,10 @@ class RoughCutPage(Page):
     description = N_("Finds silences, “uh / um” hesitations and the filler words you choose, and prepares "
                      "a trimmed timeline for DaVinci Resolve. The original video is not touched. "
                      "In Resolve: File → Import → Timeline…")
+    key = "rough_cut"
+    general = ("silence", "hesitations", "noises", "review_file", "ask", "min_silence", "pad_before",
+               "pad_after", "min_hesitation", "fillers")
+    per_video = ("keep_from", "keep_to", "remove")
 
     def build(self, parent):
         self.silence = tk.BooleanVar(value=True)
@@ -970,12 +1036,21 @@ class TitlesPage(Page):
                      "background and a soft entrance and exit. In Resolve it is dragged onto the track "
                      "above the video.")
     needs_video = False
+    key = "titles"
+    general = ("speakers", "duration", "spot", "colour")
 
     def build(self, parent):
         self.duration = tk.DoubleVar(value=6.0)
         self.positions = {_("Bottom left"): "left", _("Bottom centre"): "centre", _("Bottom right"): "right"}
         self.position = tk.StringVar(value=_("Bottom left"))
         self.colour = tk.StringVar(value="#E30613")
+        # remembered by its meaning, not by its label, which changes with the interface language
+        self.spot = Held(lambda: self.positions[self.position.get()],
+                         lambda spot: self.position.set(next(
+                             (label for label, value in self.positions.items() if value == spot),
+                             self.position.get())))
+        self.speakers = Held(lambda: self.people.get("1.0", "end-1c"), self._set_speakers)
+        self.position.trace_add("write", lambda *_args: self.app.remember_soon())
 
         g = self.card(parent, None, _("Speakers"),
                       _("One person per line: Name | Title. The title is optional. "
@@ -984,7 +1059,7 @@ class TitlesPage(Page):
                               highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
                               font=("Segoe UI", 11), padx=8, pady=6, wrap="none")
         self.people.pack(fill="x", pady=(8, 0))
-        self.people.bind("<KeyRelease>", lambda _e: self.refresh_state())
+        self.people.bind("<KeyRelease>", lambda _e: (self.refresh_state(), self.app.remember_soon()))
 
         g = self.card(parent, None, _("Look"))
         ttk.Label(g, text=_("Time on screen"), style="Card.TLabel").grid(row=0, column=0, sticky="w", pady=(8, 0))
@@ -1005,6 +1080,10 @@ class TitlesPage(Page):
         self.card(parent, None, _("Coming next"),
                   _("Topic titles that appear as the subject changes, and placing lower thirds on the "
                     "timeline automatically."))
+
+    def _set_speakers(self, text):
+        self.people.delete("1.0", "end")
+        self.people.insert("1.0", text)
 
     def _rows(self):
         return [x for x in self.people.get("1.0", "end").splitlines() if x.strip()]
@@ -1042,6 +1121,9 @@ class SocialClipsPage(Page):
     description = N_("Cuts the range you choose from a landscape video into a vertical (9:16) Reels / Shorts "
                      "video. Puts the speaker's frame over a blurred background and adds a headline, "
                      "subtitles and an intro cover.")
+    key = "social_clips"
+    general = ("kicker", "subtitles", "cover")
+    per_video = ("start", "end", "horizontal", "headline1", "headline2")
 
     def build(self, parent):
         self.start = tk.StringVar()
@@ -1192,20 +1274,31 @@ class App(tk.Tk):
         self.queue = queue.Queue()
         self.busy = False
         self.last_output = None
-        self.shown = 0
         self.root_frame = None
-        self.video.trace_add("write", lambda *_args: self._refresh_pages())
-        self.folder.trace_add("write", lambda *_args: self._refresh_pages())
+        self.owner = None  # the video whose own settings (trim times ...) are on screen
+        self.restoring = True  # while settings are being put back nothing is written
+        self._inherit = False
+        self._pending = None
+        last = i18n.load_settings()
+        page = last.get("last_page")
+        self.shown = page if type(page) is int and 0 <= page < len(PAGES) else 0
+        self.video.trace_add("write", lambda *_args: self._video_changed())
+        self.folder.trace_add("write", lambda *_args: (self._refresh_pages(), self.remember_soon()))
         self._build()
         self.after(100, self._poll)
+        self.protocol("WM_DELETE_WINDOW", self._close)
+        start = last.get("last_video")
         if len(sys.argv) > 1 and Path(sys.argv[1]).is_file():  # a file dropped onto the launcher
-            self.video.set(sys.argv[1])
+            start = sys.argv[1]
+        if isinstance(start, str) and Path(start).is_file():  # else carry on with the last video
+            self.video.set(start)
 
     # --- layout -----------------------------------------------------------------
     def _build(self):
         """Create every widget. Called again when the interface language changes."""
         if self.root_frame is not None:
             self.root_frame.destroy()
+        self.restoring = True  # until _recall has filled the new pages
         self.pages, self.menu_buttons = [], []
         self.root_frame = tk.Frame(self, bg=BACKGROUND)
         self.root_frame.pack(fill="both", expand=True)
@@ -1228,7 +1321,7 @@ class App(tk.Tk):
             self.pages.append(page)
             self.menu_buttons.append(button)
         self.show(self.shown)
-        self._refresh_pages()
+        self._recall()
         self.log(_("Davar is ready. Choose a video, then a workflow on the left."))
 
     def _header(self, parent):
@@ -1346,11 +1439,109 @@ class App(tk.Tk):
             self.language_box.set(i18n.LANGUAGES[i18n.language()])
             self.log(_("The language can be changed once the running job has finished."), error=True)
             return
+        self._remember()  # the pages are built anew and filled from what is remembered
         i18n.set_language(code, remember=True)
         self._build()
 
+    # --- remembered settings (see memory.py) ----------------------------------------
+    def _recall(self):
+        """Fill the freshly built pages with the settings last used."""
+        self.restoring = True
+        settings = i18n.load_settings()
+        defaults = settings.get("defaults") if isinstance(settings.get("defaults"), dict) else {}
+        for page in self.pages:
+            page.set_values(memory.chosen(defaults, page.key + ".", {n: page.initial[n] for n in page.general}))
+        if self.owner is not None:
+            self._show_own(memory.video_values(settings, self.owner) or {})
+        self.restoring = False
+        self._refresh_pages()
+
+    def _own_start(self):
+        """What a video's own settings are before anything is entered for it."""
+        start = {"folder": ""}
+        for page in self.pages:
+            start.update({f"{page.key}.{name}": page.initial[name] for name in page.per_video})
+        return start
+
+    def _own_values(self):
+        """The video's own settings as they stand on screen."""
+        values = {"folder": self.folder.get().strip()}
+        for page in self.pages:
+            values.update({f"{page.key}.{name}": value for name, value in page.values(page.per_video).items()})
+        return values
+
+    def _show_own(self, stored):
+        """Put a video's own settings on screen; what was never entered for it starts empty."""
+        was, self.restoring = self.restoring, True
+        self.folder.set(memory.chosen(stored, "", {"folder": ""})["folder"])
+        for page in self.pages:
+            if page.per_video:
+                page.set_values(memory.chosen(stored, page.key + ".", {n: page.initial[n] for n in page.per_video}))
+        self.restoring = was
+
+    def _video_changed(self):
+        """Another video was chosen: keep the settings of the one left, bring back those of the new one."""
+        self._refresh_pages()
+        text, path = self.video.get().strip(), self.video_path()
+        if self.restoring or not text or not path.is_file():
+            return
+        if self.owner is not None and memory.key(path) == memory.key(self.owner):
+            return
+        self._remember()  # what is on screen still belongs to the video being left
+        stored = memory.video_values(i18n.load_settings(), path)
+        inherit, self._inherit = self._inherit, False
+        previous, self.owner = self.owner, str(path)
+        # A video made from the one on screen keeps what is on screen. So does the first video
+        # chosen in a session when nothing is remembered for it: something may have been typed already.
+        if not inherit and (stored is not None or previous is not None):
+            self._show_own(stored or {})
+            start = self._own_start()
+            if stored and any(memory.fits(stored.get(name), value) and stored[name] != value
+                              for name, value in start.items()):
+                self.log(_("The settings last used for this video were brought back."))
+        self._remember(touch=True)
+
+    def continue_with(self, video):
+        """Carry on with a video made from the selected one; it keeps that one's settings."""
+        self._inherit = True
+        self.video.set(str(video))
+        self._inherit = False
+
+    def remember_soon(self):
+        """Something changed: write the settings shortly, once, however fast the changes come."""
+        if self.restoring:
+            return
+        if self._pending is not None:
+            self.after_cancel(self._pending)
+        self._pending = self.after(600, self._remember)
+
+    def _remember(self, touch=False):
+        if self._pending is not None:
+            self.after_cancel(self._pending)
+            self._pending = None
+        settings = i18n.load_settings()
+        before = json.dumps(settings, sort_keys=True)
+        defaults = settings.get("defaults") if isinstance(settings.get("defaults"), dict) else {}
+        for page in self.pages:
+            defaults.update({f"{page.key}.{name}": value for name, value in page.values(page.general).items()})
+        settings["defaults"] = defaults
+        settings["last_page"] = self.shown
+        if self.owner is not None:
+            memory.store_video(settings, self.owner, self._own_values(), touch=touch)
+            settings["last_video"] = self.owner
+        if json.dumps(settings, sort_keys=True) != before:
+            try:
+                i18n.save_settings(settings)
+            except OSError:
+                pass  # remembering is a convenience; the work itself must not stop for it
+
+    def _close(self):
+        self._remember()
+        self.destroy()
+
     def show(self, index):
         self.shown = index
+        self.remember_soon()
         self.pages[index].tkraise()
         for i, button in enumerate(self.menu_buttons):
             if i == index:

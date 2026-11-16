@@ -10,6 +10,7 @@ and add it to LANGUAGES below.
 import importlib
 import json
 import locale
+import os
 from pathlib import Path
 
 LANGUAGES = {"en": "English", "tr": "Türkçe"}
@@ -25,16 +26,26 @@ def settings_path():
 
 def load_settings():
     try:
-        return json.loads(settings_path().read_text(encoding="utf-8"))
+        settings = json.loads(settings_path().read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
+    return settings if isinstance(settings, dict) else {}
+
+
+def save_settings(settings):
+    """Write the whole settings file. Written beside it first and then swapped in, so that a
+    crash in the middle cannot leave half a file."""
+    path = settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    draft = path.with_name(path.name + ".tmp")
+    draft.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(draft, path)
 
 
 def save_setting(key, value):
     settings = load_settings()
     settings[key] = value
-    settings_path().parent.mkdir(parents=True, exist_ok=True)
-    settings_path().write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+    save_settings(settings)
 
 
 def default_language():
