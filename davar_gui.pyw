@@ -696,6 +696,15 @@ class RoughCutPage(Page):
         return roughcut.report(result, detailed=False)
 
 
+def shown_in(view, candidate):
+    """Whether a cut candidate belongs in a view of the review list."""
+    return {"all": True,
+            "ticked": candidate["selected"],
+            "unticked": not candidate["selected"],
+            "uncertain": candidate["confidence"] != "high",
+            "sounds": candidate["kind"] in ("noise", "unknown")}[view]
+
+
 class ReviewWindow(tk.Toplevel):
     """The list of cut candidates: listen, change a tick, apply."""
 
@@ -720,9 +729,17 @@ class ReviewWindow(tk.Toplevel):
                               "cut directly.")
                   + ("" if state["has_transcript"] else "  " + _("There is no transcript, so no context text.")),
                   style="PanelMuted.TLabel", wraplength=1100, justify="left").pack(anchor="w", pady=(4, 0))
-        self.doubtful = tk.BooleanVar(value=False)
-        ttk.Checkbutton(top, text=_("Show only the uncertain ones"), variable=self.doubtful,
-                        style="Panel.TCheckbutton", command=self._fill).pack(anchor="w", pady=(8, 0))
+        row = ttk.Frame(top, style="Panel.TFrame")
+        row.pack(anchor="w", pady=(8, 0))
+        ttk.Label(row, text=_("Show"), style="Panel.TLabel").pack(side="left")
+        self.views = {_("All"): "all", _("To be cut"): "ticked", _("Not to be cut"): "unticked",
+                      _("Uncertain ones"): "uncertain", _("Non-speech sounds"): "sounds"}
+        self.view = tk.StringVar(value=_("All"))
+        choice = ttk.Combobox(row, textvariable=self.view, values=list(self.views), width=22, state="readonly")
+        choice.pack(side="left", padx=(8, 0))
+        choice.bind("<<ComboboxSelected>>", lambda _e: (self._fill(), self.table.focus_set()))
+        ttk.Label(row, text=_("A row whose tick you change stays in the list until you choose again."),
+                  style="PanelMuted.TLabel").pack(side="left", padx=(14, 0))
 
         bottom = ttk.Frame(self, style="Panel.TFrame", padding=(18, 8, 18, 14))
         bottom.pack(side="bottom", fill="x")
@@ -797,8 +814,7 @@ class ReviewWindow(tk.Toplevel):
     def _fill(self):
         self.table.configure(state="normal")
         self.table.delete("1.0", "end")
-        self.rows = [i for i, c in enumerate(self.candidates)
-                     if not (self.doubtful.get() and c["confidence"] == "high")]
+        self.rows = [i for i, c in enumerate(self.candidates) if shown_in(self.views[self.view.get()], c)]
         for line, i in enumerate(self.rows, 1):
             if line > 1:
                 self.table.insert("end", "\n")

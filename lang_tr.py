@@ -426,7 +426,14 @@ TRANSLATIONS = {
         "İşaretli olanlar kesilecek. Satıra çift tıkla: dinle. İlk sütuna tıkla ya da "
         "boşluk tuşu: işareti değiştir. Sessizlikler bu listede yok, doğrudan kesilir.",
     "There is no transcript, so no context text.": "İlk Analiz olmadığı için bağlam metni yok.",
-    "Show only the uncertain ones": "Yalnızca emin olunmayanları göster",
+    "Show": "Göster",
+    "All": "Hepsi",
+    "To be cut": "Kesilecekler",
+    "Not to be cut": "Kesilmeyecekler",
+    "Uncertain ones": "Emin olunmayanlar",
+    "Non-speech sounds": "Konuşma dışı sesler",
+    "A row whose tick you change stays in the list until you choose again.":
+        "İşaretini değiştirdiğin satır, yeniden seçim yapana kadar listede kalır.",
     "Listen with the cut": "Kesilmiş halini dinle",
     "Tick the medium ones too": "Ortaları da işaretle",
     "Tick all": "Hepsini işaretle",
