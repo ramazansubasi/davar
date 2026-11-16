@@ -404,7 +404,8 @@ def timeline_words(words, parts, fps):
         position += end - start
     ends = [end for _start, end in bounds]
     result = []
-    for text, start, end in sorted(words, key=lambda w: w[1]):
+    for word in sorted(words, key=lambda w: w[1]):
+        text, start, end = word[:3]  # anything after the times rides along
         end = max(end, start + 0.01)
         pieces = []
         index = bisect.bisect_right(ends, start)
@@ -416,7 +417,7 @@ def timeline_words(words, parts, fps):
             index += 1
         kept = sum(high - low for low, high in pieces)
         if pieces and (kept >= 0.5 * (end - start) or kept >= 0.25):
-            result.append([text, round(pieces[0][0], 3), round(pieces[-1][1], 3)])
+            result.append([text, round(pieces[0][0], 3), round(pieces[-1][1], 3), *word[3:]])
     return result
 
 

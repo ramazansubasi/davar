@@ -17,6 +17,7 @@
 - **Rough Cut: move closer to the speaker.** To hide jump cuts the timeline is framed as with a second camera: closer to whoever gives a long answer, toward the side they sit on, and on everyone during quick exchanges. Inside a long answer the framing changes about every half minute, at the cut that jumps most. Who speaks comes from the transcript, who sits where from the Titles page; name titles already on the timeline stay.
 - **Rough Cut: subtitles for the cut.** With a transcript, Rough Cut also writes subtitles that follow the cut timeline (`<video>_cut.srt`); words cut away are left out and the rest move to their time on the timeline. Correcting the text rewrites them too.
 - **Rough Cut: views of the review list.** The **Show** choice lists all candidates, those to be cut, those not to be cut, the uncertain ones or the non-speech sounds. It replaces the box that hid only the confident ones.
+- **Content Analysis**, a new workflow (06): an AI chat of your choice writes the YouTube texts, with no key and no fee. Davar writes a prompt holding the transcript with its times on the Rough Cut timeline and who says what; the answer pasted back becomes title suggestions, a description with chapters, tags, a summary and social clip candidates (`<video>_youtube.txt`). The chapters follow YouTube's rules.
 - **Titles: a place for each name.** A line may say where its name goes (`Name | Title | right`), for people sitting on different sides; the place chosen on the page is for the lines that say nothing.
 
 ### Changed

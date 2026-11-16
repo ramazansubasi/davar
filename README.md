@@ -21,11 +21,11 @@ Six of the ten workflows work; four are planned.
 | 03 | Transcribe | works | Transcribes the speech once with word-level timing and saves it; writes subtitles (`.srt`) and text (`.txt`) |
 | 04 | Rough Cut | works | Finds silences, "uh / um" hesitations and filler words, lets you review the candidates, writes a Resolve timeline (`.fcpxml`) |
 | 05 | Multicam Edit | planned | Picks the camera of whoever is speaking |
-| 06 | Content Analysis | planned | Extracts topics, chapter times and highlights |
+| 06 | Content Analysis | works | Has an AI chat of your choice write the YouTube texts: titles, description with chapters, tags, social clip candidates |
 | 07 | Titles | works | Makes a transparent lower third with a soft entrance and exit for a speaker's name and title, and places it on the timeline where that speaker first speaks |
 | 08 | Visual Assets | planned | Places photos and documents to cut in |
 | 09 | Social Clips | works | Cuts a chosen range into a vertical Reels / Shorts video with headline, subtitles and cover |
-| 10 | Publish | planned | YouTube description, chapter times, title suggestions |
+| 10 | Publish | planned | Thumbnail text and picture |
 
 No workflow modifies your original video. Davar works with the **free version** of Resolve: it does not remote-control Resolve, it writes files that Resolve imports.
 
@@ -95,6 +95,8 @@ python roughcut.py "video.mp4" --from 0:07 --to 51:19 --remove "50:46-51:03" --f
 
 ```bash
 python titles.py "Jane Doe" "Journalist" --video "video.mp4"
+python content.py "video.mp4"                     # writes video_prompt.txt
+python content.py "video.mp4" --answer answer.txt # writes video_youtube.txt
 ```
 
 ```bash
@@ -184,6 +186,16 @@ Hesitations and filler words arrive as **candidates** in a list with time, kind,
 An "uh" rarely stops abruptly: it fades for another 0.1-0.3 seconds. The cut follows that fading tail to where the next sound begins, so no stub is left behind.
 
 No AI model or internet connection is needed for this; it is computed from the audio. That is why Rough Cut also works on videos that have not been transcribed.
+
+## 06 Content Analysis
+
+Has an AI chat write the texts for YouTube: five title suggestions, a description, chapters, tags, a short summary and three to five candidate ranges for social clips. It needs no key and costs nothing, because you do the asking:
+
+1. **Start** writes a prompt (`<video>_prompt.txt`) and copies it. It holds the transcript with its times on the Rough Cut timeline, who says what (the speakers and their titles are taken from the Titles page), and the programme and channel names you give.
+2. Paste it into an AI chat (claude.ai, gemini.google.com, chatgpt.com) and send it. The transcript of a 45-minute talk is about 45,000 characters.
+3. Copy the whole answer, paste it into box 2 and press **Write the texts**. Davar checks it and writes `<video>_youtube.txt`, ready to copy into YouTube Studio.
+
+Because the times are on the Rough Cut timeline, the chapters match the finished video. Davar puts the first chapter at 0:00 and drops chapters closer than ten seconds, as YouTube requires. For each social clip candidate the times in the uncut video are given too, which is what Social Clips takes. The transcript goes to the AI service you paste it into.
 
 ## 07 Titles
 

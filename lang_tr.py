@@ -427,6 +427,59 @@ TRANSLATIONS = {
         "boşluk tuşu: işareti değiştir. Sessizlikler bu listede yok, doğrudan kesilir.",
     "There is no transcript, so no context text.": "İlk Analiz olmadığı için bağlam metni yok.",
     "Show": "Göster",
+    "Has an AI chat of your choice write the YouTube texts: title suggestions, a description "
+    "with chapters, tags, a summary and social clip candidates. No key and no fee: you paste "
+    "Davar's prompt into the chat and its answer back here.":
+        "YouTube metinlerini seçtiğin bir yapay zekâ sohbetine yazdırır: başlık önerileri, bölüm zamanlı "
+        "açıklama, etiketler, özet ve sosyal klip adayları. Anahtar ve ücret gerekmez: Davar'ın istemini "
+        "sohbete, cevabını buraya yapıştırırsın.",
+    "1. Prepare the prompt": "1. İstemi hazırla",
+    "Start writes the transcript with its times on the Rough Cut timeline and who says "
+    "what, and copies it. The speakers and their titles are taken from the Titles page. "
+    "The text goes to the AI service you paste it into.":
+        "Başlat, dökümü Kaba Kurgu çizelgesindeki zamanlarıyla ve kimin ne dediğiyle yazar ve kopyalar. "
+        "Konuşmacılar ve unvanları Yazılar sayfasından alınır. Metin, onu yapıştırdığın yapay zekâ "
+        "hizmetine gider.",
+    "Programme": "Program",
+    "e.g. the name of the series": "örneğin programın adı",
+    "Channel": "Kanal",
+    "Notes": "Notlar",
+    "anything the AI should know: the date, the subject, a spelling":
+        "yapay zekânın bilmesi gerekenler: tarih, konu, bir yazım",
+    "Copy the prompt again": "İstemi yeniden kopyala",
+    "2. Paste the answer": "2. Cevabı yapıştır",
+    "Copy the AI chat's whole answer, paste it here and press Write the texts. The texts are "
+    "written next to the video, ready for YouTube Studio.":
+        "Yapay zekâ sohbetinin cevabının tamamını kopyala, buraya yapıştır ve Metinleri yaz'a bas. "
+        "Metinler videonun yanına, YouTube Studio'ya hazır olarak yazılır.",
+    "Write the texts": "Metinleri yaz",
+    "Clear": "Temizle",
+    "No speakers are written on the Titles page; the lines will not say who speaks.":
+        "Yazılar sayfasında konuşmacı yazılı değil; satırlarda kimin konuştuğu yazmayacak.",
+    "Run Transcribe first": "Önce İlk Analiz'i çalıştır",
+    "The prompt is copied again: {path}": "İstem yeniden kopyalandı: {path}",
+    "run Transcribe first; the texts are written from the transcript.":
+        "önce İlk Analiz'i çalıştır; metinler dökümden yazılır.",
+    "Writing the prompt": "İstem yazılıyor",
+    "the answer could not be read. Paste the whole answer of the AI chat; it should be "
+    "one block that starts with {{ and ends with }}.":
+        "cevap okunamadı. Yapay zekâ sohbetinin cevabının tamamını yapıştır; {{ ile başlayıp }} ile "
+        "biten tek bir blok olmalı.",
+    "Prompt written: {path} ({lines} lines, {characters} characters)":
+        "İstem yazıldı: {path} ({lines} satır, {characters} karakter)",
+    "Times are on the Rough Cut timeline, so the chapters will match the finished video.":
+        "Zamanlar Kaba Kurgu çizelgesine göre; bölümler bitmiş videoyla örtüşecek.",
+    "There is no Rough Cut timeline yet: the times are those of the uncut video.":
+        "Henüz Kaba Kurgu çizelgesi yok: zamanlar kesilmemiş videonunkiler.",
+    "The prompt is copied. Open an AI chat (claude.ai, gemini.google.com or chatgpt.com), paste it and "
+    "send it. Copy its whole answer and paste it into box 2 on this page.":
+        "İstem kopyalandı. Bir yapay zekâ sohbeti aç (claude.ai, gemini.google.com ya da chatgpt.com), "
+        "yapıştır ve gönder. Cevabın tamamını kopyalayıp bu sayfadaki 2. kutuya yapıştır.",
+    "Texts written: {path}": "Metinler yazıldı: {path}",
+    "{titles} titles, {chapters} chapters, {tags} tags, {clips} social clip candidates":
+        "{titles} başlık, {chapters} bölüm, {tags} etiket, {clips} sosyal klip adayı",
+    "WARNING: YouTube shows chapters only when there are at least three.":
+        "UYARI: YouTube bölümleri ancak en az üç tane olduğunda gösterir.",
     "All": "Hepsi",
     "To be cut": "Kesilecekler",
     "Not to be cut": "Kesilmeyecekler",
@@ -554,20 +607,6 @@ TRANSLATIONS = {
         "Birbirine eşlenmiş (senkron) kamera dosyaları ve konuşmacı başına ayrı ses. "
         "Tek kameralı çekimlerde kullanılamaz.",
     "Content Analysis": "İçerik Analizi",
-    "Reads the transcript and extracts the video's topics, chapters and highlights.":
-        "İlk Analiz'in metnini okuyup videonun konularını, bölümlerini ve öne çıkan yerlerini çıkarır.",
-    "Extracts topic titles and YouTube chapter times.":
-        "Konu başlıklarını ve YouTube bölüm zamanlarını çıkarır.",
-    "Lists a summary of the video and its standout sentences.":
-        "Videonun özetini ve öne çıkan cümlelerini listeler.",
-    "Suggests candidate ranges for social clips (hook, context, payoff).":
-        "Sosyal klip için aday aralıklar önerir (kanca, bağlam, sonuç).",
-    "A language model that understands the text: either an online AI service (needs a key and a "
-    "small fee, and the text leaves your computer) or a model running on your computer (free, "
-    "slow and weaker). Which one will be used is not decided yet.":
-        "Metni anlayan bir dil modeli. İnternet üzerinden bir yapay zekâ servisi (anahtar ve küçük "
-        "bir ücret gerekir, metin dışarı gider) ya da bilgisayarda çalışan bir model (ücretsiz, "
-        "yavaş ve daha zayıf). Hangisinin kullanılacağı henüz kararlaştırılmadı.",
     "Visual Assets": "Görsel Malzeme",
     "Arranges the photos, documents and footage to cut in, according to what is being said.":
         "Konuşulan konulara göre araya girecek fotoğraf, belge ve görüntüleri düzenler.",
@@ -578,13 +617,13 @@ TRANSLATIONS = {
     "The scope of this workflow is not settled yet; the others come first.":
         "Bu iş akışının kapsamı henüz netleşmedi; önce diğerleri bitecek.",
     "Publish": "Yayın",
-    "Gathers the texts and files needed before uploading to YouTube.":
-        "YouTube'a yüklemeden önce gereken metinleri ve dosyaları toplar.",
-    "Drafts a YouTube description with chapter times.":
-        "Bölüm zamanlarıyla birlikte YouTube açıklaması taslağı çıkarır.",
-    "Prepares title suggestions and tags.": "Başlık önerileri ve etiketler hazırlar.",
+    "Gathers the texts and files needed before uploading to YouTube. The description, "
+    "chapters, titles and tags are already written by Content Analysis.":
+        "YouTube'a yüklemeden önce gereken metinleri ve dosyaları toplar. Açıklama, bölümler, başlıklar "
+        "ve etiketler zaten İçerik Analizi'nde yazılıyor.",
     "Suggests text and a frame for the thumbnail.": "Kapak görseli (thumbnail) için yazı ve kare önerir.",
-    "The chapter extraction step of Content Analysis.": "İçerik Analizi'nin bölüm çıkarma adımı.",
+    "Makes the thumbnail picture.": "Kapak görselini hazırlar.",
+    "The texts of Content Analysis.": "İçerik Analizi'nin metinleri.",
     # picture
     "Picture": "Görüntü",
     "Reframes the video to 16:9 and holds a tripod shot still. The picture is re-encoded and "

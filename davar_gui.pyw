@@ -24,6 +24,7 @@ from tkinter import filedialog, messagebox, ttk
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import audio  # noqa: E402
 import clips  # noqa: E402
+import content  # noqa: E402
 import dictionary  # noqa: E402
 import i18n  # noqa: E402
 import memory  # noqa: E402
@@ -1343,17 +1344,118 @@ class MultiCamPage(Planned):
     needs = N_("Synchronised camera files and separate audio per speaker. Cannot be used on single-camera shoots.")
 
 
-class ContentAnalysisPage(Planned):
+class ContentAnalysisPage(Page):
     name = N_("Content Analysis")
-    description = N_("Reads the transcript and extracts the video's topics, chapters and highlights.")
-    will_do = (
-        N_("Extracts topic titles and YouTube chapter times."),
-        N_("Lists a summary of the video and its standout sentences."),
-        N_("Suggests candidate ranges for social clips (hook, context, payoff)."),
-    )
-    needs = N_("A language model that understands the text: either an online AI service (needs a key and a "
-               "small fee, and the text leaves your computer) or a model running on your computer (free, "
-               "slow and weaker). Which one will be used is not decided yet.")
+    description = N_("Has an AI chat of your choice write the YouTube texts: title suggestions, a description "
+                     "with chapters, tags, a summary and social clip candidates. No key and no fee: you paste "
+                     "Davar's prompt into the chat and its answer back here.")
+    key = "content"
+    general = ("programme", "channel")
+    per_video = ("notes",)
+
+    def build(self, parent):
+        self.programme = tk.StringVar()
+        self.channel = tk.StringVar()
+        self.notes = tk.StringVar()
+
+        g = self.card(parent, None, _("1. Prepare the prompt"),
+                      _("Start writes the transcript with its times on the Rough Cut timeline and who says "
+                        "what, and copies it. The speakers and their titles are taken from the Titles page. "
+                        "The text goes to the AI service you paste it into."))
+        g.columnconfigure(1, weight=1)
+        for row, (label, variable, hint) in enumerate((
+                (_("Programme"), self.programme, _("e.g. the name of the series")),
+                (_("Channel"), self.channel, ""),
+                (_("Notes"), self.notes, _("anything the AI should know: the date, the subject, a spelling")))):
+            ttk.Label(g, text=label, style="Card.TLabel").grid(row=row, column=0, sticky="w", pady=(8, 0))
+            ttk.Entry(g, textvariable=variable).grid(row=row, column=1, sticky="ew", padx=(12, 0), pady=(8, 0))
+            ttk.Label(g, text=hint, style="CardMuted.TLabel").grid(row=row, column=2, sticky="w", padx=(12, 0),
+                                                                   pady=(8, 0))
+        self.prompt_status = ttk.Label(g, text="", style="CardMuted.TLabel", wraplength=680, justify="left")
+        self.prompt_status.grid(row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
+        self.copy_button = ttk.Button(g, text=_("Copy the prompt again"), command=self._copy_again)
+        self.copy_button.grid(row=4, column=0, columnspan=3, sticky="w", pady=(8, 0))
+
+        g = self.card(parent, None, _("2. Paste the answer"),
+                      _("Copy the AI chat's whole answer, paste it here and press Write the texts. The texts are "
+                        "written next to the video, ready for YouTube Studio."))
+        self.answer = tk.Text(g, height=7, bg=FIELD, fg=TEXT, insertbackground=TEXT, bd=0, highlightthickness=1,
+                              highlightbackground=BORDER, highlightcolor=ACCENT, font=("Consolas", 9),
+                              padx=8, pady=6, wrap="word")
+        self.answer.pack(fill="x", pady=(8, 0))
+        row = ttk.Frame(g, style="Card.TFrame")
+        row.pack(anchor="w", pady=(8, 0))
+        ttk.Button(row, text=_("Write the texts"), command=self._write_texts).pack(side="left")
+        ttk.Button(row, text=_("Clear"), command=lambda: self.answer.delete("1.0", "end")).pack(side="left",
+                                                                                              padx=(8, 0))
+
+    def _prompt_path(self):
+        try:
+            return self.app.output_folder() / (self.app.video_path().stem + "_prompt.txt")
+        except DavarError:
+            return None
+
+    def _people(self):
+        page = next((p for p in self.app.pages if isinstance(p, TitlesPage)), None)
+        try:
+            people = titles.parse_people(page._rows()) if page is not None else []
+        except DavarError:
+            people = []
+        return [(person["name"], person["title"]) for person in people]
+
+    def missing(self):
+        video = self.app.video.get().strip() and self.app.video_path().is_file()
+        prompt = self._prompt_path() if video else None
+        people = self._people()
+        self.prompt_status.configure(text=(_("Speakers from the Titles page: {list}").format(
+            list=", ".join(name for name, _title in people)) if people
+            else _("No speakers are written on the Titles page; the lines will not say who speaks.")))
+        self.copy_button.configure(state="normal" if prompt is not None and prompt.is_file() else "disabled")
+        if video and not self.app.transcript():
+            return _("Run Transcribe first")
+        return ""
+
+    def read_settings(self):
+        saved = self.app.transcript()
+        return dict(video=self.app.video_path(), folder=self.app.output_folder(),
+                    words=saved["words"] if saved else None, language=saved.get("language", "tr") if saved else "tr",
+                    programme=self.programme.get(), channel=self.channel.get(), notes=self.notes.get(),
+                    people=self._people())
+
+    def run(self, settings, progress):
+        return content.prepare(progress=progress, **settings)
+
+    def finish(self, result):
+        self._copy(result["prompt"])
+        return result
+
+    def result_text(self, result):
+        return content.report_prompt(result)
+
+    def _copy(self, text):
+        self.app.clipboard_clear()
+        self.app.clipboard_append(text)
+
+    def _copy_again(self):
+        path = self._prompt_path()
+        if path is not None and path.is_file():
+            self._copy(path.read_text(encoding="utf-8"))
+            self.app.log(_("The prompt is copied again: {path}").format(path=path))
+
+    def _write_texts(self):
+        if not self.app.video.get().strip() or not self.app.video_path().is_file():
+            self.app.log(_("Choose a video at the top first"), error=True)
+            return
+        saved = self.app.transcript()
+        try:
+            result = content.finish(self.app.video_path(), self.answer.get("1.0", "end"), self.app.output_folder(),
+                                    saved.get("language", "tr") if saved else "tr")
+        except DavarError as e:
+            self.app.log(_("Failed: {message}").format(message=e), error=True)
+            return
+        self.app.last_output = result["output"]
+        self.app.folder_button.configure(state="normal")
+        self.app.log(content.report_texts(result))
 
 
 class VisualAssetsPage(Planned):
@@ -1368,13 +1470,13 @@ class VisualAssetsPage(Planned):
 
 class PublishPage(Planned):
     name = N_("Publish")
-    description = N_("Gathers the texts and files needed before uploading to YouTube.")
+    description = N_("Gathers the texts and files needed before uploading to YouTube. The description, "
+                     "chapters, titles and tags are already written by Content Analysis.")
     will_do = (
-        N_("Drafts a YouTube description with chapter times."),
-        N_("Prepares title suggestions and tags."),
         N_("Suggests text and a frame for the thumbnail."),
+        N_("Makes the thumbnail picture."),
     )
-    needs = N_("The chapter extraction step of Content Analysis.")
+    needs = N_("The texts of Content Analysis.")
 
 
 PAGES = [AudioPage, PicturePage, TranscribePage, RoughCutPage, MultiCamPage, ContentAnalysisPage,

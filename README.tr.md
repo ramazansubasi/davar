@@ -21,11 +21,11 @@ On iş akışından altısı çalışıyor, dördü planlandı.
 | 03 | İlk Analiz | çalışıyor | Konuşmayı bir kez, kelime zamanlarıyla yazıya döker ve kaydeder; altyazı (`.srt`) ve metin (`.txt`) üretir |
 | 04 | Kaba Kurgu | çalışıyor | Sessizlikleri, "ııı / eee" duraksamalarını ve dolgu kelimelerini bulur; adayları onayına sunar; Resolve çizelgesi (`.fcpxml`) yazar |
 | 05 | Çok Kamera Kurgusu | planlandı | Kim konuşuyorsa onun kamerasını seçer |
-| 06 | İçerik Analizi | planlandı | Konuları, bölüm zamanlarını ve öne çıkan yerleri çıkarır |
+| 06 | İçerik Analizi | çalışıyor | YouTube metinlerini seçtiğin bir yapay zekâ sohbetine yazdırır: başlıklar, bölüm zamanlı açıklama, etiketler, sosyal klip adayları |
 | 07 | Yazılar | çalışıyor | Konuşmacı adı ve unvanı için saydam zeminli, yumuşak giriş-çıkışlı KJ (alt bant) videosu üretir ve onu, o kişinin ilk konuştuğu yere zaman çizelgesine yerleştirir |
 | 08 | Görsel Malzeme | planlandı | Araya girecek fotoğraf ve belgelerin yerleşimi |
 | 09 | Sosyal Klipler | çalışıyor | Seçilen aralığı başlık, altyazı ve kapakla dikey Reels / Shorts olarak keser |
-| 10 | Yayın | planlandı | YouTube açıklaması, bölüm zamanları, başlık önerileri |
+| 10 | Yayın | planlandı | Kapak görselinin yazısı ve görüntüsü |
 
 Orijinal videoya hiçbir iş akışı dokunmaz. Resolve'un **ücretsiz sürümüyle** çalışır: Davar Resolve'u dışarıdan yönetmez, Resolve'un içe aktardığı dosyalar üretir.
 
@@ -89,6 +89,8 @@ python roughcut.py "video.mp4" --from 0:07 --to 51:19 --remove "50:46-51:03" --f
 
 ```bash
 python titles.py "Halil Özen" "Gazeteci" --video "video.mp4"
+python content.py "video.mp4"                     # video_prompt.txt yazar
+python content.py "video.mp4" --answer cevap.txt  # video_youtube.txt yazar
 ```
 
 ```bash
@@ -178,6 +180,16 @@ Duraksamalar ve dolgu kelimeleri **aday** olarak bir listede gelir: zaman, tür,
 "Iıı" sesi çoğu zaman birden bitmez, 0,1-0,3 saniye daha kısılarak sürer. Kesim bu kuyruğu, sonraki sesin başladığı yere kadar izler; geride artık kalmaz.
 
 Bunun için yapay zekâ modeli ya da internet bağlantısı gerekmez; sesin kendisinden hesaplanır. Bu yüzden Kaba Kurgu, yazıya dökülmemiş videolarda da çalışır.
+
+## 06 İçerik Analizi
+
+YouTube metinlerini bir yapay zekâ sohbetine yazdırır: beş başlık önerisi, açıklama, bölümler, etiketler, kısa bir özet ve sosyal klip için üç-beş aday aralık. Anahtar ve ücret gerekmez, çünkü soruyu sen sorarsın:
+
+1. **Başlat** bir istem yazar (`<video>_prompt.txt`) ve kopyalar. İstemde döküm Kaba Kurgu çizelgesindeki zamanlarıyla, kimin ne dediğiyle (konuşmacılar ve unvanları Yazılar sayfasından alınır) ve verdiğin program ve kanal adıyla yer alır.
+2. İstemi bir yapay zekâ sohbetine (claude.ai, gemini.google.com, chatgpt.com) yapıştırıp gönder. 45 dakikalık bir söyleşinin dökümü yaklaşık 45.000 karakterdir.
+3. Cevabın tamamını kopyala, 2. kutuya yapıştır ve **Metinleri yaz**'a bas. Davar cevabı denetler ve YouTube Studio'ya kopyalanmaya hazır `<video>_youtube.txt` dosyasını yazar.
+
+Zamanlar Kaba Kurgu çizelgesine göre olduğu için bölümler bitmiş videoyla örtüşür. YouTube'un istediği gibi Davar ilk bölümü 0:00'a koyar, birbirine on saniyeden yakın bölümleri atar. Her sosyal klip adayı için kesilmemiş videodaki zamanlar da yazılır; Sosyal Klipler bu zamanları kullanır. Döküm, onu yapıştırdığın yapay zekâ hizmetine gider.
 
 ## 07 Yazılar
 
