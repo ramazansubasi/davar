@@ -36,6 +36,8 @@ LIKELY = 0.5  # and only places the classifier finds at least this likely
 PLACE_GAP = 2.0  # seconds; places closer than this are one
 SEARCH = 0.8  # seconds on each side of a place searched for where its sound begins and ends
 SHORTEST = 0.15  # seconds
+ALONE = 0.8  # how surely the stretch to cut, heard on its own, must be a throat being cleared
+SLIVER = 0.12  # seconds; a piece this short between the stretch and a silence is cut with it
 
 
 def model_path():
@@ -166,15 +168,17 @@ def edges(db, threshold, start, end):
 def narrow(samples, db, threshold, start, end, hears):
     """The stretch to cut for a place pinned between `start` and `end`, or None.
 
-    Every stretch between two dips near the place is tried: it is taken out of the three
-    seconds around the place and `hears(audio)` says how surely a throat is still being cleared
-    in what is left. The shortest stretch whose removal brings that below LIKELY is the one;
-    so nothing of the words around it is cut.
+    Every stretch between two dips near the place is tried, and `hears(audio)` says how surely
+    a throat is being cleared in a piece of sound. A stretch qualifies when taking it out of the
+    three seconds around the place leaves less than LIKELY, and when it sounds like a throat
+    being cleared on its own, with silence around it (ALONE). Of those that take it away most
+    completely, the shortest is cut; a sliver left between it and a silence goes with it.
     """
     middle = (start + end) / 2
     cuts = edges(db, threshold, middle - SEARCH, middle + SEARCH)
     low = max(int((middle - 1.5) * SAMPLE_RATE), 0)
     high = min(int((middle + 1.5) * SAMPLE_RATE), len(samples))
+    quiet = np.zeros(SAMPLE_RATE // 2, np.float32)
     tried = []
     for i, first in enumerate(cuts):
         for last in cuts[i + 1:i + 6]:
@@ -182,12 +186,24 @@ def narrow(samples, db, threshold, start, end, hears):
                 continue
             a, b = int(first * SAMPLE_RATE), int(last * SAMPLE_RATE)
             left = hears(np.concatenate([samples[low:a], samples[b:high]]))
-            tried.append((left, last - first, round(first, 2), round(last, 2)))
-    gone = [t for t in tried if t[0] < LIKELY]
-    if not gone:
+            if left < LIKELY and hears(np.concatenate([quiet, samples[a:b], quiet])) >= ALONE:
+                tried.append((left, last - first, first, last))
+    if not tried:
         return None
-    _left, _length, first, last = min(gone, key=lambda t: (t[1], t[0]))
-    return first, last
+    least = min(t[0] for t in tried)
+    _left, _length, first, last = min((t for t in tried if t[0] <= least + 0.03), key=lambda t: (t[1], t[0]))
+
+    def silent_at(moment):
+        k = int(round(moment / WINDOW))
+        return db[max(k - 2, 0):k + 3].min() < threshold
+
+    k = cuts.index(first)
+    if k > 0 and first - cuts[k - 1] < SLIVER and silent_at(cuts[k - 1]):
+        first = cuts[k - 1]
+    k = cuts.index(last)
+    if k + 1 < len(cuts) and cuts[k + 1] - last < SLIVER and silent_at(cuts[k + 1]):
+        last = cuts[k + 1]
+    return round(first, 2), round(last, 2)
 
 
 def find_throat_clearing(samples, db, threshold, usable=lambda moment: True, progress=None):
