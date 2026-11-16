@@ -22,7 +22,7 @@ On iş akışından altısı çalışıyor, dördü planlandı.
 | 04 | Kaba Kurgu | çalışıyor | Sessizlikleri, "ııı / eee" duraksamalarını ve dolgu kelimelerini bulur; adayları onayına sunar; Resolve çizelgesi (`.fcpxml`) yazar |
 | 05 | Çok Kamera Kurgusu | planlandı | Kim konuşuyorsa onun kamerasını seçer |
 | 06 | İçerik Analizi | planlandı | Konuları, bölüm zamanlarını ve öne çıkan yerleri çıkarır |
-| 07 | Yazılar | çalışıyor | Konuşmacı adı ve unvanı için saydam zeminli, yumuşak giriş-çıkışlı KJ (alt bant) videosu üretir |
+| 07 | Yazılar | çalışıyor | Konuşmacı adı ve unvanı için saydam zeminli, yumuşak giriş-çıkışlı KJ (alt bant) videosu üretir ve onu, o kişinin ilk konuştuğu yere zaman çizelgesine yerleştirir |
 | 08 | Görsel Malzeme | planlandı | Araya girecek fotoğraf ve belgelerin yerleşimi |
 | 09 | Sosyal Klipler | çalışıyor | Seçilen aralığı başlık, altyazı ve kapakla dikey Reels / Shorts olarak keser |
 | 10 | Yayın | planlandı | YouTube açıklaması, bölüm zamanları, başlık önerileri |
@@ -181,6 +181,18 @@ Konuşmacı adı ve unvanı için KJ (alt bant) üretir: solda vurgu şeridi, ü
 
 Boyut ve kare hızı seçili videodan alınır; süre, yer (sol, orta, sağ) ve vurgu rengi ayarlanabilir.
 
+### Adları zaman çizelgesine yerleştirme
+
+**Zaman çizelgesine yerleştir** işaretliyken Davar her adı, o kişi ilk konuşmaya başladıktan birkaç saniye sonra videonun üstündeki şeride de koyar:
+
+- Konuşmacıları **ilk konuştukları sırayla** yaz. Davar sesleri renginden ayırt eder; ilk satıra ilk duyulan sesi, ikinci satıra sonraki yeni sesi verir. Bunun için döküm gerekir.
+- Adlar, varsa videonun Kaba Kurgu çizelgesine (`<video>_cut.fcpxml`) eklenir; çizelgeyi Resolve'a yeniden al. Yoksa videonun tamamını içeren bir çizelge yazılır (`<video>_titles.fcpxml`).
+- Kayıt bölümü her ad için seçilen anı ve orada söylenen sözleri gösterir; adların yer değiştirdiği böylece hemen görülür. İkisi yer değiştirmişse satırların sırasını değiştir.
+- Anı kendin seçmek için videodaki zamanı üçüncü alan olarak ekle: `Ayşe Yılmaz | Gazeteci | 0:41`.
+- Kaba Kurgu yeniden çalıştırıldığında adlar yerinde kalır.
+
+Sesler bilgisayarında, ek bir indirme olmadan ayırt edilir. Sesleri birbirinden belirgin biçimde farklı birkaç kişi için yapılmıştır; konuşma sırasının değiştiği an ancak birkaç saniye yaklaşıklıkla bilinir, ad bu yüzden konuşmacı başladıktan biraz sonra gelir.
+
 ## 09 Sosyal Klipler
 
 Yatay bir videodan verdiğin zaman aralığını 1080x1920 dikey video olarak keser: bulanık arka plan üstünde konuşmacı kadrajı, üstte kısa bir yazı ve iki satıra kadar başlık. İsteğe bağlı olarak altyazı ve 2,5 saniyelik bir giriş kapağı ekler. Ses yüksekliği sosyal medya düzeyine (-14 LUFS) getirilir.
@@ -193,6 +205,7 @@ Altyazı için İlk Analiz'in metni kullanılır; analiz yoksa seçilen aralık 
 - Dolgu kelimelerinin zamanı yazıya dökmeden gelir ve yaklaşıktır; kesmeden önce "Kesilmiş halini dinle" ile denetle.
 - Arka planı gürültülü kayıtlarda (sokak, rüzgâr, müzik) sessizlik ayrımı zayıflar. Davar bu durumda uyarır.
 - Kare hızı değişken kayıtlarda (bazı telefon ve ekran kayıtları) Resolve'da kesim yerleri kayabilir. Davar bu durumda uyarır.
+- Konuşmacıları ayırt etme, birbirinden belirgin biçimde farklı seslerde çalışır. Benzer iki ses, aynı anda konuşan kişiler ya da konuşmanın altındaki müzik bir adı yanlış yere koyabilir; kayıt bölümü her yerdeki sözleri gösterir, oradan denetleyebilirsin.
 - Kesimler otomatiktir; yayınlamadan önce izlemek senin işin.
 
 ## Geliştirme

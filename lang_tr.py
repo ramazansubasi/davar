@@ -156,6 +156,33 @@ TRANSLATIONS = {
         "KJ       : {n} adet, {width}x{height}, {seconds:.0f} sn, saydam zeminli (ProRes 4444)",
     "How to use : in Resolve drag it onto the track above the video; the entrance and exit are built in":
         "Kullanım : Resolve'da videonun üstündeki şeride sürükle; giriş ve çıkış hazır gelir",
+    "too many “|” in the line “{line}”. It reads: Name | Title | time":
+        "“{line}” satırında fazla “|” var. Biçimi şöyle: Ad Soyad | Unvan | zaman",
+    "the time given for {name} is outside the video.": "{name} için verilen zaman videonun dışında.",
+    "run Transcribe first, or give each name its time: Name | Title | 0:41":
+        "önce İlk Analiz'i çalıştır ya da her ada zamanını ver: Ad Soyad | Unvan | 0:41",
+    "Listening for who speaks when": "Kimin ne zaman konuştuğu dinleniyor",
+    "Writing the timeline": "Zaman çizelgesi yazılıyor",
+    "Placed on the Rough Cut timeline, on the track above the video:":
+        "Kaba Kurgu çizelgesine, videonun üstündeki şeride yerleştirildi:",
+    "No Rough Cut timeline was found for this video, so a timeline of the whole video "
+    "was written:":
+        "Bu video için Kaba Kurgu çizelgesi bulunamadı; videonun tamamını içeren bir çizelge yazıldı:",
+    "{name}: at {video} in the video, {timeline} on the timeline":
+        "{name}: videoda {video}, çizelgede {timeline}",
+    "{name}: could not tell where this person first speaks. Give the time "
+    "yourself: Name | Title | 12:30":
+        "{name}: bu kişinin ilk nerede konuştuğu bulunamadı. Zamanı kendin ver: Ad Soyad | Unvan | 12:30",
+    "Check that each name stands over that person's own words; if two are swapped, "
+    "change the order of the lines.":
+        "Her adın o kişinin kendi sözlerinin üstünde durduğunu denetle; ikisi yer değiştirmişse "
+        "satırların sırasını değiştir.",
+    "In Resolve: File → Import → Timeline…": "Resolve'da: File → Import → Timeline…",
+    "run Transcribe first; the speakers are told apart with the help of the transcript.":
+        "önce İlk Analiz'i çalıştır; konuşmacılar dökümün yardımıyla ayırt edilir.",
+    "there is too little speech to tell the speakers apart.":
+        "konuşmacıları ayırt etmek için konuşma çok az.",
+    "Name titles kept on the timeline: {n}": "Çizelgede korunan KJ: {n}",
 
     # --- interface: frame -----------------------------------------------------
     "Pre-edit helper for DaVinci Resolve": "DaVinci Resolve için kurgu öncesi yardımcı",
@@ -381,10 +408,11 @@ TRANSLATIONS = {
     # --- interface: titles ----------------------------------------------------
     "Titles": "Yazılar",
     "Makes a lower third for a speaker's name and title: a ready video with a transparent "
-    "background and a soft entrance and exit. In Resolve it is dragged onto the track "
-    "above the video.":
+    "background and a soft entrance and exit. Davar can put it on the timeline where the "
+    "speaker first speaks; or drag it onto the track above the video in Resolve.":
         "Konuşmacı adı ve unvanı için KJ (alt bant) üretir: saydam zeminli, girişi ve çıkışı "
-        "yumuşak hazır bir video. Resolve'da videonun üstündeki şeride sürüklenir.",
+        "yumuşak hazır bir video. Davar onu konuşmacının ilk konuştuğu yere, zaman çizelgesine "
+        "koyabilir; istersen Resolve'da videonun üstündeki şeride kendin sürüklersin.",
     "Speakers": "Konuşmacılar",
     "One person per line: Name | Title. The title is optional. "
     "A separate file is written for each person.":
@@ -400,9 +428,25 @@ TRANSLATIONS = {
     "Accent colour": "Vurgu rengi",
     "Colour of the stripe and the title band; example #E30613":
         "Şerit ve unvan bandının rengi; örnek #E30613",
-    "Topic titles that appear as the subject changes, and placing lower thirds on the "
-    "timeline automatically.":
-        "Konu değiştikçe ekrana gelen konu başlıkları ve KJ'lerin çizelgeye kendiliğinden yerleştirilmesi.",
+    "Topic titles that appear as the subject changes.": "Konu değiştikçe ekrana gelen konu başlıkları.",
+    "Place them on the timeline": "Zaman çizelgesine yerleştir",
+    "Write the speakers in the order they first speak. Davar listens for who speaks when "
+    "and puts each name on the track above the video, a few seconds after that person "
+    "first speaks. It needs the transcript. To choose the moment yourself, add the time "
+    "in the video as a third field: Name | Title | 0:41":
+        "Konuşmacıları ilk konuştukları sırayla yaz. Davar kimin ne zaman konuştuğunu sesten bulur ve her "
+        "adı, o kişi ilk konuşmaya başladıktan birkaç saniye sonra videonun üstündeki şeride koyar. "
+        "Bunun için döküm gerekir. Anı kendin seçmek istersen videodaki zamanı üçüncü alan olarak ekle: "
+        "Ad Soyad | Unvan | 0:41",
+    "No video selected: the names are made but not placed.":
+        "Video seçili değil: KJ'ler üretilir ama yerleştirilmez.",
+    "They will be added to the Rough Cut timeline of this video: {name}":
+        "Bu videonun Kaba Kurgu çizelgesine eklenecek: {name}",
+    "This video has no Rough Cut timeline yet, so a timeline of the whole video will be "
+    "written. Run Rough Cut first to get the names on the cut.":
+        "Bu videonun henüz Kaba Kurgu çizelgesi yok; videonun tamamını içeren bir çizelge yazılacak. "
+        "Adların kesilmiş çizelgeye gelmesi için önce Kaba Kurgu'yu çalıştır.",
+    "Run Transcribe first, or give each name a time": "Önce İlk Analiz'i çalıştır ya da her ada zaman ver",
     "The size and frame rate are taken from the selected video.":
         "Boyut ve kare hızı seçili videodan alınır.",
     "No video selected: made at 1920x1080, 30 frames per second.":

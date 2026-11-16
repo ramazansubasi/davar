@@ -1033,17 +1033,18 @@ class TranscriptWindow(tk.Toplevel):
 class TitlesPage(Page):
     name = N_("Titles")
     description = N_("Makes a lower third for a speaker's name and title: a ready video with a transparent "
-                     "background and a soft entrance and exit. In Resolve it is dragged onto the track "
-                     "above the video.")
+                     "background and a soft entrance and exit. Davar can put it on the timeline where the "
+                     "speaker first speaks; or drag it onto the track above the video in Resolve.")
     needs_video = False
     key = "titles"
-    general = ("speakers", "duration", "spot", "colour")
+    general = ("speakers", "duration", "spot", "colour", "timeline")
 
     def build(self, parent):
         self.duration = tk.DoubleVar(value=6.0)
         self.positions = {_("Bottom left"): "left", _("Bottom centre"): "centre", _("Bottom right"): "right"}
         self.position = tk.StringVar(value=_("Bottom left"))
         self.colour = tk.StringVar(value="#E30613")
+        self.timeline = tk.BooleanVar(value=True)
         # remembered by its meaning, not by its label, which changes with the interface language
         self.spot = Held(lambda: self.positions[self.position.get()],
                          lambda spot: self.position.set(next(
@@ -1061,6 +1062,14 @@ class TitlesPage(Page):
         self.people.pack(fill="x", pady=(8, 0))
         self.people.bind("<KeyRelease>", lambda _e: (self.refresh_state(), self.app.remember_soon()))
 
+        g = self.card(parent, self.timeline, _("Place them on the timeline"),
+                      _("Write the speakers in the order they first speak. Davar listens for who speaks when "
+                        "and puts each name on the track above the video, a few seconds after that person "
+                        "first speaks. It needs the transcript. To choose the moment yourself, add the time "
+                        "in the video as a third field: Name | Title | 0:41"))
+        self.timeline_note = ttk.Label(g, text="", style="Card.TLabel", wraplength=680, justify="left")
+        self.timeline_note.pack(anchor="w", pady=(6, 0))
+
         g = self.card(parent, None, _("Look"))
         ttk.Label(g, text=_("Time on screen"), style="Card.TLabel").grid(row=0, column=0, sticky="w", pady=(8, 0))
         ttk.Spinbox(g, textvariable=self.duration, from_=2, to=30, increment=0.5, width=6,
@@ -1077,9 +1086,7 @@ class TitlesPage(Page):
         self.size_note = ttk.Label(g, text="", style="CardMuted.TLabel")
         self.size_note.grid(row=3, column=0, columnspan=3, sticky="w", pady=(10, 0))
 
-        self.card(parent, None, _("Coming next"),
-                  _("Topic titles that appear as the subject changes, and placing lower thirds on the "
-                    "timeline automatically."))
+        self.card(parent, None, _("Coming next"), _("Topic titles that appear as the subject changes."))
 
     def _set_speakers(self, text):
         self.people.delete("1.0", "end")
@@ -1097,16 +1104,38 @@ class TitlesPage(Page):
         self.size_note.configure(
             text=_("The size and frame rate are taken from the selected video.") if video
             else _("No video selected: made at 1920x1080, 30 frames per second."))
+        self.timeline_note.configure(text=self._timeline_note(video))
         if not self._rows():
             return _("Write at least one name")
         if not video and not self.app.folder.get().strip():
             return _("Choose an output folder to make one without a video")
+        untimed = any(len(row.split("|")) < 3 or not row.split("|")[2].strip() for row in self._rows())
+        if self.timeline.get() and video and untimed and not self.app.transcript():
+            return _("Run Transcribe first, or give each name a time")
         return ""
 
+    def _timeline_note(self, video):
+        """Say where the names will go, so that nothing is written unexpectedly."""
+        if not video:
+            return _("No video selected: the names are made but not placed.")
+        try:
+            cut = self.app.output_folder() / (video.stem + "_cut.fcpxml")
+        except DavarError:
+            return ""
+        if cut.is_file():
+            return _("They will be added to the Rough Cut timeline of this video: {name}").format(name=cut.name)
+        return _("This video has no Rough Cut timeline yet, so a timeline of the whole video will be "
+                 "written. Run Rough Cut first to get the names on the cut.")
+
     def read_settings(self):
-        return dict(rows=self._rows(), video=self._video(), folder=self.app.output_folder(),
+        video = self._video()
+        saved = self.app.transcript() if video else None
+        return dict(rows=self._rows(), video=video, folder=self.app.output_folder(),
                     duration=float(self.duration.get()), colour=self.colour.get(),
-                    position=self.positions[self.position.get()])
+                    position=self.positions[self.position.get()],
+                    timeline=self.timeline.get() and video is not None,
+                    words=saved["words"] if saved else None,
+                    language=saved.get("language", "tr") if saved else "tr")
 
     def run(self, settings, progress):
         rows = settings.pop("rows")

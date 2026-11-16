@@ -13,6 +13,7 @@
   - Settings that belong to one video (trim times, the range of a social clip, separate audio files, the output folder) are kept with that video and come back when it is chosen again.
   - Davar opens with the video and the page last worked on, and a video it wrote from another one starts with the settings of its source.
   - Each page has a **Back to defaults** button, and the settings survive a change of the interface language.
+- **Titles: names placed on the timeline.** Write the speakers in the order they first speak; Davar tells the voices apart and puts each lower third on the track above the video, a few seconds after that person first speaks. The names go into the Rough Cut timeline when there is one, the log shows the words spoken at each place, a time can be given by hand (`Name | Title | 0:41`), and running Rough Cut again keeps the names.
 
 ### Changed
 

@@ -10,7 +10,11 @@ import argparse
 import math
 import re
 import sys
+from fractions import Fraction
 from pathlib import Path
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
+from xml.etree import ElementTree
 from xml.sax.saxutils import quoteattr
 
 import numpy as np
@@ -290,13 +294,43 @@ def remaining_parts(cuts, total):
     return parts
 
 
-def write_fcpxml(output, video, info, parts, label="cut"):
+def timeline_place(parts, frame):
+    """Where a frame of the video lands on the timeline made of `parts`:
+    (index of the part, the frame it is shown from, its frame on the timeline).
+    A frame that was cut away moves to the start of the next part that was kept;
+    None if nothing is kept after it."""
+    position = 0
+    for index, (start, end) in enumerate(parts):
+        if frame < end:
+            shown = max(frame, start)
+            return index, shown, position + shown - start
+        position += end - start
+    return None
+
+
+def write_fcpxml(output, video, info, parts, label="cut", overlays=()):
+    """Write the parts of the video one after the other as a timeline.
+
+    `overlays` are clips for the track above, such as name titles: dicts with "path",
+    "at" (the frame of the video they start on) and "frames" (their length). They must
+    have the size and frame rate of the video.
+    """
     fps = info["fps"]
 
     def t(frame):
         return f"{frame * fps.denominator}/{fps.numerator}s"
 
     name = video.stem
+    assets, above = {}, {}  # overlay path -> resource id; part index -> lines of the clips above it
+    for overlay in sorted(overlays, key=lambda o: o["at"]):
+        place = timeline_place(parts, overlay["at"])
+        if place is None:
+            continue
+        path = Path(overlay["path"])
+        assets.setdefault(path, (f"r{len(assets) + 3}", overlay["frames"]))
+        above.setdefault(place[0], []).append(
+            f'              <asset-clip name={quoteattr(path.stem)} lane="1" offset="{t(place[1])}" start="0s" '
+            f'duration="{t(overlay["frames"])}" tcFormat="NDF" ref="{assets[path][0]}"/>')
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         "<!DOCTYPE fcpxml>",
@@ -309,6 +343,11 @@ def write_fcpxml(output, video, info, parts, label="cut"):
         f'duration="{t(info["frames"])}">',
         f'      <media-rep kind="original-media" src={quoteattr(video.resolve().as_uri())}/>',
         "    </asset>",
+        *(line for path, (resource, frames) in assets.items() for line in (
+            f'    <asset id="{resource}" name={quoteattr(path.stem)} start="0s" hasVideo="1" format="r1" '
+            f'videoSources="1" duration="{t(frames)}">',
+            f'      <media-rep kind="original-media" src={quoteattr(path.resolve().as_uri())}/>',
+            "    </asset>")),
         "  </resources>",
         "  <library>",
         '    <event name="davar">',
@@ -319,13 +358,42 @@ def write_fcpxml(output, video, info, parts, label="cut"):
         "          <spine>",
     ]
     position = 0
-    for start, end in parts:
-        lines.append(f'            <asset-clip name={quoteattr(name)} offset="{t(position)}" '
-                     f'start="{t(start)}" duration="{t(end - start)}" tcFormat="NDF" ref="r2"/>')
+    for index, (start, end) in enumerate(parts):
+        clip = (f'            <asset-clip name={quoteattr(name)} offset="{t(position)}" '
+                f'start="{t(start)}" duration="{t(end - start)}" tcFormat="NDF" ref="r2"')
+        lines += [clip + ">", *above[index], "            </asset-clip>"] if index in above else [clip + "/>"]
         position += end - start
     lines += ["          </spine>", "        </sequence>", "      </project>",
               "    </event>", "  </library>", "</fcpxml>", ""]
     output.write_text("\n".join(lines), encoding="utf-8")
+
+
+def read_timeline(path, video, info):
+    """Read back a timeline written by write_fcpxml for this video: (parts, overlays).
+    None if the file is not there, is not such a timeline, or is of another video or frame rate."""
+    fps = info["fps"]
+
+    def frames(text):
+        value = Fraction(text.rstrip("s")) * fps
+        if value.denominator != 1:
+            raise ValueError(text)
+        return int(value)
+
+    try:
+        root = ElementTree.parse(path).getroot()
+        sources = {asset.get("id"): asset.find("media-rep").get("src") for asset in root.iter("asset")}
+        if sources.get("r2") != Path(video).resolve().as_uri() or frames(root.find(".//format").get("frameDuration")) != 1:
+            return None
+        parts, overlays = [], []
+        for clip in root.find(".//spine").findall("asset-clip"):
+            start = frames(clip.get("start"))
+            parts.append((start, start + frames(clip.get("duration"))))
+            for upper in clip.findall("asset-clip"):
+                overlays.append({"path": Path(url2pathname(unquote(urlparse(sources[upper.get("ref")]).path))),
+                                 "at": frames(upper.get("offset")), "frames": frames(upper.get("duration"))})
+    except (OSError, ElementTree.ParseError, AttributeError, KeyError, TypeError, ValueError, ZeroDivisionError):
+        return None
+    return (parts, overlays) if parts else None
 
 
 # --- candidates ---------------------------------------------------------------
@@ -600,7 +668,10 @@ def apply(state, output=None, review=False):
     if not parts:
         raise DavarError(_("the whole video looks silent; try lowering the threshold."))
     output = Path(output) if output else video.with_name(video.stem + "_cut.fcpxml")
-    write_fcpxml(output, video, info, parts)
+    # name titles that Titles placed on an earlier cut of this video stay on the new one
+    earlier = read_timeline(output, video, info)
+    titles = [o for o in earlier[1] if o["path"].is_file()] if earlier else []
+    write_fcpxml(output, video, info, parts, overlays=titles)
 
     selected = [c for c in state["candidates"] if c["selected"]]
     review_file = None
@@ -621,7 +692,7 @@ def apply(state, output=None, review=False):
         "video": video, "info": info, "fps": fps, "floor": state["floor"], "speech": state["speech"],
         "threshold": state["threshold"], "manual_threshold": state["manual_threshold"],
         "cuts": cuts, "candidates": state["candidates"], "selected": selected,
-        "removed": sum(end - start for start, end in cuts) / fps,
+        "removed": sum(end - start for start, end in cuts) / fps, "titles": len(titles),
         "output": output, "review": review_file,
         "keep_from": state.get("keep_from"), "keep_to": state.get("keep_to"),
         "remove": state.get("remove", []),
@@ -672,6 +743,8 @@ def report(r, detailed=True):
         if len(r["candidates"]) > 15:
             lines.append("  " + _("... and {n} more candidates").format(n=len(r["candidates"]) - 15))
     lines.append("\n" + _("Timeline written: {path}").format(path=r["output"]))
+    if r.get("titles"):
+        lines.append(_("Name titles kept on the timeline: {n}").format(n=r["titles"]))
     if r["review"]:
         lines.append(_("Review timeline written: {path}").format(path=r["review"]))
     return "\n".join(lines)

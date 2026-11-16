@@ -2,7 +2,8 @@
 
 The result is a video with a transparent background and a soft entrance and exit
 (ProRes 4444). In DaVinci Resolve it is dragged onto the track above the video; no
-further effect is needed.
+further effect is needed. From the window the names can also be placed on the
+timeline, each where its speaker first speaks (see place_on_timeline).
 
     python titles.py "Jane Doe" "Journalist" --video "episode.mp4"
 """
@@ -13,7 +14,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from common import NO_WINDOW, DavarError, video_info
+import roughcut
+import speakers
+from common import NO_WINDOW, DavarError, format_time, parse_time, video_info
 from i18n import _
 from roughcut import plain
 
@@ -28,6 +31,11 @@ FONTS = {
 POSITIONS = ("left", "centre", "right")
 PANEL = (14, 18, 26, 225)  # colour of the name band (dark, slightly transparent)
 FADE_IN, FADE_OUT = 0.5, 0.4  # seconds
+# Placing a name on the timeline. Where a turn begins is only known to within a few seconds,
+# so the name comes a little late rather than over the last words of the person before.
+PLACE_AFTER = 4.0  # seconds after a speaker's turn is found to begin
+OPENING = 2.0  # seconds after the programme starts, for whoever speaks first
+LONG_TURN = 10.0  # the name is put on the first turn at least this long, not on an interjection
 
 
 def parse_colour(text):
@@ -173,31 +181,140 @@ def make_lower_third(name, title="", video=None, folder=None, duration=6.0, colo
             "size": (width, height), "fps": fps}
 
 
-def make_lower_thirds(rows, progress=None, **settings):
-    """Make several lower thirds from lines of the form "Name | Title"."""
+def parse_people(rows):
+    """Lines of the form "Name | Title | time" as dicts. The title and the time (the moment in
+    the video the name should appear) are optional."""
     people = []
     for row in rows:
-        if row.strip():
-            name, _sep, title = row.partition("|")
-            people.append((name.strip(), title.strip()))
+        fields = [field.strip() for field in row.split("|")]
+        if not fields[0]:
+            continue
+        if len(fields) > 3:
+            raise DavarError(_("too many “|” in the line “{line}”. It reads: Name | Title | time").format(
+                line=row.strip()))
+        fields += [""] * (3 - len(fields))
+        people.append({"name": fields[0], "title": fields[1], "time": parse_time(fields[2]) if fields[2] else None})
     if not people:
         raise DavarError(_("a lower third needs at least a name."))
+    return people
+
+
+def plan_places(people, turns, start, end):
+    """The moment in the video each person's name should appear, or None where it cannot be told.
+
+    `turns` are (start, end, speaker) as found by speakers.find_turns; `start` and `end` are
+    where the programme begins and ends. The people are taken to be listed in the order they
+    first speak: the first listed gets the voice heard first, and so on. A person with a time
+    of their own keeps it, and the voice heard at that time is taken to be theirs.
+    """
+    first = {}  # speaker -> (the moment their first long turn begins, whether the programme opens with it)
+    for turn_start, turn_end, who in turns:
+        begins, stops = max(turn_start, start), min(turn_end, end)
+        if who not in first and stops - begins >= LONG_TURN:
+            first[who] = (begins, turn_start <= start + 0.5)
+    taken = {who for person in people if person["time"] is not None
+             for turn_start, turn_end, who in turns if turn_start <= person["time"] < turn_end}
+    free = [who for who in sorted(first, key=lambda who: first[who][0]) if who not in taken]
+    places = []
+    for person in people:
+        if person["time"] is not None:
+            places.append(person["time"])
+        elif free:
+            begins, opens = first[free.pop(0)]
+            places.append(begins + (OPENING if opens else PLACE_AFTER))
+        else:
+            places.append(None)
+    return places
+
+
+def place_on_timeline(video, people, items, folder=None, words=None, language="tr", progress=None):
+    """Put the lower thirds on the track above the video, each where its speaker first speaks.
+
+    They go into the Rough Cut timeline of the video (`<video>_cut.fcpxml`) when there is one,
+    replacing any names placed before; otherwise a timeline of the whole video is written
+    (`<video>_titles.fcpxml`). `items` are the results of make_lower_third, in the order of `people`.
+    """
+    video = Path(video)
+    target = Path(folder) if folder else video.parent
+    info = video_info(video)
+    fps = float(info["fps"])
+    cut = target / (video.stem + "_cut.fcpxml")
+    known = roughcut.read_timeline(cut, video, info)
+    parts = known[0] if known else [(0, info["frames"])]
+    output, label = (cut, "cut") if known else (target / (video.stem + "_titles.fcpxml"), "titles")
+    start, end = parts[0][0] / fps, parts[-1][1] / fps
+    for person in people:
+        if person["time"] is not None and not 0 <= person["time"] < info["duration"]:
+            raise DavarError(_("the time given for {name} is outside the video.").format(name=person["name"]))
+
+    turns = []
+    if any(person["time"] is None for person in people):
+        if not words:
+            raise DavarError(_("run Transcribe first, or give each name its time: Name | Title | 0:41"))
+        if progress:
+            progress(88, _("Listening for who speaks when"))
+        samples, _levels = roughcut.audio_levels(video)
+        turns = speakers.find_turns(samples, words, len(people), language)
+    if progress:
+        progress(96, _("Writing the timeline"))
+    overlays, placed, missed = [], [], []
+    for person, item, moment in zip(people, items, plan_places(people, turns, start, end)):
+        place = roughcut.timeline_place(parts, round(moment * fps)) if moment is not None else None
+        if place is None:
+            missed.append(person["name"])
+            continue
+        overlays.append({"path": item["output"], "at": place[1], "frames": round(item["duration"] * item["fps"])})
+        said = [word for word, word_start, _word_end in words or [] if word_start >= place[1] / fps - 0.3][:9]
+        placed.append({"name": person["name"], "video": place[1] / fps, "timeline": place[2] / fps,
+                       "said": " ".join(said)})
+    roughcut.write_fcpxml(output, video, info, parts, label=label, overlays=overlays)
+    return {"timeline": output, "in_cut": bool(known), "placed": placed, "missed": missed}
+
+
+def make_lower_thirds(rows, progress=None, timeline=False, words=None, language="tr", **settings):
+    """Make several lower thirds from lines of the form "Name | Title". With `timeline` (and a
+    video) they are also placed on the timeline; `words` is the transcript of the video."""
+    people = parse_people(rows)
+    share = 0.85 if timeline else 1.0  # of the progress bar
     results = []
-    for i, (name, title) in enumerate(people):
+    for i, person in enumerate(people):
         def step(percent, text, i=i):
             if progress:
-                progress((i * 100 + percent) / len(people), text)
-        results.append(make_lower_third(name, title, progress=step, **settings))
-    return {"output": results[0]["output"], "items": results}
+                progress((i * 100 + percent) / len(people) * share, text)
+        results.append(make_lower_third(person["name"], person["title"], progress=step, **settings))
+    result = {"output": results[0]["output"], "items": results}
+    if timeline and settings.get("video"):
+        result.update(place_on_timeline(settings["video"], people, results, settings.get("folder"), words,
+                                        language, progress))
+        result["output"] = result["timeline"]
+    if progress:
+        progress(100, _("Finished"))
+    return result
 
 
 def report(r):
     first = r["items"][0]
     lines = [_("Lower thirds: {n}, {width}x{height}, {seconds:.0f} s, transparent background (ProRes 4444)").format(
-                 n=len(r["items"]), width=first["size"][0], height=first["size"][1], seconds=first["duration"]),
-             _("How to use : in Resolve drag it onto the track above the video; the entrance and exit are built in"),
-             ""]
-    return "\n".join(lines + [_("Written: {path}").format(path=item["output"]) for item in r["items"]])
+                 n=len(r["items"]), width=first["size"][0], height=first["size"][1], seconds=first["duration"])]
+    if "timeline" not in r:
+        lines.append(_("How to use : in Resolve drag it onto the track above the video; the entrance and exit are built in"))
+    lines += [""] + [_("Written: {path}").format(path=item["output"]) for item in r["items"]]
+    if "timeline" in r:
+        lines += ["", _("Placed on the Rough Cut timeline, on the track above the video:") if r["in_cut"]
+                  else _("No Rough Cut timeline was found for this video, so a timeline of the whole video "
+                         "was written:")]
+        for p in r["placed"]:
+            lines.append("  " + _("{name}: at {video} in the video, {timeline} on the timeline").format(
+                name=p["name"], video=format_time(p["video"]), timeline=format_time(p["timeline"]))
+                + (f"  «{p['said']} …»" if p["said"] else ""))
+        for name in r["missed"]:
+            lines.append("  " + _("{name}: could not tell where this person first speaks. Give the time "
+                                  "yourself: Name | Title | 12:30").format(name=name))
+        lines += [_("Check that each name stands over that person's own words; if two are swapped, "
+                    "change the order of the lines."),
+                  _("Timeline written: {path}").format(path=r["timeline"]),
+                  _("In Resolve: File → Import → Timeline…")]
+    return "\n".join(lines)
 
 
 def main():

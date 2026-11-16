@@ -22,7 +22,7 @@ Six of the ten workflows work; four are planned.
 | 04 | Rough Cut | works | Finds silences, "uh / um" hesitations and filler words, lets you review the candidates, writes a Resolve timeline (`.fcpxml`) |
 | 05 | Multicam Edit | planned | Picks the camera of whoever is speaking |
 | 06 | Content Analysis | planned | Extracts topics, chapter times and highlights |
-| 07 | Titles | works | Makes a transparent lower third with a soft entrance and exit for a speaker's name and title |
+| 07 | Titles | works | Makes a transparent lower third with a soft entrance and exit for a speaker's name and title, and places it on the timeline where that speaker first speaks |
 | 08 | Visual Assets | planned | Places photos and documents to cut in |
 | 09 | Social Clips | works | Cuts a chosen range into a vertical Reels / Shorts video with headline, subtitles and cover |
 | 10 | Publish | planned | YouTube description, chapter times, title suggestions |
@@ -187,6 +187,18 @@ Makes a lower third for a speaker's name and title: an accent stripe on the left
 
 The size and frame rate come from the selected video; the duration, place (left, centre, right) and accent colour can be set.
 
+### Placing the names on the timeline
+
+With **Place them on the timeline** ticked, Davar also puts each name on the track above the video, a few seconds after that person first speaks:
+
+- Write the speakers **in the order they first speak**. Davar tells the voices apart by their colour and gives the first line the voice heard first, the second line the next new voice, and so on. This needs the transcript.
+- The names go into the Rough Cut timeline of the video (`<video>_cut.fcpxml`) when there is one; import it into Resolve again. Without one, a timeline of the whole video is written (`<video>_titles.fcpxml`).
+- The log shows the moment chosen for each name and the words spoken there, so a swap is easy to see. If two names are swapped, change the order of the lines.
+- To choose the moment yourself, add the time in the video as a third field: `Jane Doe | Journalist | 0:41`.
+- Running Rough Cut again keeps the names where they are.
+
+The voices are told apart on your computer, with no extra download. It is made for a few people with clearly different voices; the moment a turn changes is known only to within a few seconds, which is why the name appears a little after the speaker starts.
+
 ## 09 Social Clips
 
 Cuts the time range you give from a landscape video into a 1080x1920 vertical video: the speaker's frame over a blurred background, a short kicker and up to two headline lines on top. Optionally it adds subtitles and a 2.5 second intro cover. Loudness is brought to the social media level (-14 LUFS).
@@ -199,11 +211,12 @@ Subtitles use the transcript when there is one; otherwise the chosen range is tr
 - Filler-word timing comes from the transcript and is approximate; use "Listen with the cut" before cutting them.
 - On recordings with a noisy background (street, wind, music) silence detection gets weaker. Davar warns when that happens.
 - On recordings with a variable frame rate (some phone and screen recordings) cut points may drift in Resolve. Davar warns when that happens.
+- Telling speakers apart works on voices that differ clearly. Two similar voices, people talking over each other or music under the speech can put a name in the wrong place; the log shows the words at each place so you can check.
 - Cuts are automatic; watching them before you publish is your job.
 
 ## Development
 
-The computational parts (silence and hesitation detection, candidate selection, subtitles, audio matching, dictionary, transcript editing, lower-third drawing) and the completeness of the translations are tested with synthetic data; neither ffmpeg nor a video is needed.
+The computational parts (silence and hesitation detection, candidate selection, subtitles, audio matching, dictionary, transcript editing, lower-third drawing, telling speakers apart, placing names on the timeline) and the completeness of the translations are tested with synthetic data; neither ffmpeg nor a video is needed.
 
 ```bash
 python -m unittest discover tests
