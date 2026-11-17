@@ -154,7 +154,7 @@ class Timeline(unittest.TestCase):
             self.assertNotIn("lane", timeline.read_text(encoding="utf-8"))
             wide = roughcut.WIDE
             self.assertEqual(roughcut.read_timeline(timeline, video, INFO),
-                             {"parts": self.PARTS, "overlays": [], "framings": [wide, wide, wide]})
+                             {"parts": self.PARTS, "overlays": [], "framings": [wide, wide, wide], "still": None})
 
     def test_closer_framings_are_written_before_the_titles_and_read_back(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -169,6 +169,19 @@ class Timeline(unittest.TestCase):
                             "the picture's own adjustment comes before the clip above it")
             back = roughcut.read_timeline(timeline, video, INFO)
             self.assertEqual(back["framings"], [middle, left, left])
+            self.assertEqual(len(back["overlays"]), 1)
+
+    def test_a_still_picture_lasts_the_whole_timeline_and_is_read_back(self):
+        with tempfile.TemporaryDirectory() as folder:
+            video, logo, timeline = (Path(folder) / name for name in ("talk.mp4", "talk_logo.png", "cut.fcpxml"))
+            roughcut.write_fcpxml(timeline, video, INFO, self.PARTS, still=logo,
+                                  overlays=[{"path": Path(folder) / "lowerthird_a.mov", "at": 230, "frames": 60}])
+            text = timeline.read_text(encoding="utf-8")
+            self.assertIn('<video name="talk_logo" lane="2" offset="221/30s" ref="rs" start="0s" duration="354/30s"/>',
+                          text, "on its own track above the titles, from the start to the end of the cut")
+            self.assertEqual(text.count('lane="2"'), 1)
+            back = roughcut.read_timeline(timeline, video, INFO)
+            self.assertEqual(back["still"], logo.resolve())
             self.assertEqual(len(back["overlays"]), 1)
 
     def test_another_videos_timeline_is_not_taken(self):

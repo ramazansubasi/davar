@@ -572,6 +572,33 @@ TRANSLATIONS = {
     "Line under it": "Alt satır",
     "e.g. GUEST: NAME · TITLE; the same on every title": "örneğin KONUK: AD SOYAD · UNVAN; her KJ'de aynı",
     "Logo": "Logo",
+    "The logo shown on the topic titles, and if you like in a corner of the picture from the "
+    "start to the end.":
+        "Gündem KJ'lerinde görünen logo; istersen videonun başından sonuna kadar görüntünün bir köşesinde de durur.",
+    "Logo file": "Logo dosyası",
+    "Put it in a corner of the picture, from the start to the end": "Baştan sona görüntünün bir köşesine koy",
+    "Corner": "Köşe",
+    "Top right": "Sağ üst",
+    "Top left": "Sol üst",
+    "Bottom right": "Sağ alt",
+    "Bottom left": "Sol alt",
+    "Width": "Genişlik",
+    "percent of the picture's width": "görüntü genişliğinin yüzdesi",
+    "Choose the logo file": "Logo dosyasını seç",
+    "the corner can be: {choices}": "köşe şunlardan biri olabilir: {choices}",
+    "the logo's width must be between 3 and 40 percent of the picture.":
+        "logonun genişliği görüntünün yüzde 3 ile 40'ı arasında olmalı.",
+    "choose the logo file first.": "önce logo dosyasını seç.",
+    "top right": "sağ üst",
+    "top left": "sol üst",
+    "bottom right": "sağ alt",
+    "bottom left": "sol alt",
+    "Logo         : {corner} corner, {width} pixels wide, from the start to the end":
+        "Logo         : {corner} köşede, {width} piksel genişlikte, baştan sona",
+    "Placed on the Rough Cut timeline, on a track of its own above the titles.":
+        "Kaba Kurgu çizelgesine, KJ'lerin üstünde kendi şeridine yerleştirildi.",
+    "No Rough Cut timeline was found for this video, so a timeline of the whole video was written.":
+        "Bu video için Kaba Kurgu çizelgesi bulunamadı; videonun tamamını içeren bir çizelge yazıldı.",
     "Choose the logo": "Logoyu seç",
     "Pictures": "Resimler",
     "No chapters yet: write the texts on the Content Analysis page first.":

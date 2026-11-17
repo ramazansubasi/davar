@@ -232,7 +232,11 @@ A lower third for the question or the subject being talked about: a white panel 
 
 Write one per line as `time | headline`, or press **Take the chapters of Content Analysis** to fill them from the on-screen titles the AI wrote for each chapter. The times are on the Rough Cut timeline; each title opens three seconds into its chapter and waits while a name title is on screen. A line of its own under the headline can be added: `time | headline | line`. The titles go onto the Rough Cut timeline next to the name titles, and making either again keeps the other.
 
-The look comes from a brand folder, `.davar/brand` in your home folder: Montserrat is used when its files (`Montserrat-ExtraBold.ttf`, `-Bold`, `-SemiBold`) are in its `fonts` folder, a common bold font otherwise. The logo is any picture you choose on the page.
+### The logo in a corner
+
+In the **Logo** card, tick **Put it in a corner of the picture** and choose the corner (top right, top left, bottom right, bottom left) and the width of the logo. Davar draws it on a transparent picture of the size of the video and puts that on a track of its own above the video and the titles, from the start of the Rough Cut timeline to its end. Nothing is re-encoded: in Resolve the logo can still be moved, resized or switched off. Running Rough Cut or Titles again keeps it. The same logo file is used on the topic titles.
+
+The look of the topic titles comes from a brand folder, `.davar/brand` in your home folder: Montserrat is used when its files (`Montserrat-ExtraBold.ttf`, `-Bold`, `-SemiBold`) are in its `fonts` folder, a common bold font otherwise. The logo is any picture you choose on the page.
 
 ## 09 Social Clips
 

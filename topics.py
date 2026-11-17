@@ -299,7 +299,8 @@ def place_on_timeline(video, made, folder=None):
     known = roughcut.read_timeline(cut, video, info)
     if known is None:
         titles = roughcut.read_timeline(target / (video.stem + "_titles.fcpxml"), video, info)
-        known = {"parts": [(0, info["frames"])], "overlays": titles["overlays"] if titles else [], "framings": None}
+        known = {"parts": [(0, info["frames"])], "overlays": titles["overlays"] if titles else [], "framings": None,
+                 "still": titles["still"] if titles else None}
         output, label, in_cut = target / (video.stem + "_titles.fcpxml"), "titles", False
     else:
         output, label, in_cut = cut, "cut", True
@@ -320,7 +321,8 @@ def place_on_timeline(video, made, folder=None):
         at = round(video_moment(parts, fps, start) * fps)
         overlays.append({"path": item["output"], "at": at, "frames": round(item["duration"] * item["fps"])})
         placed.append({"headline": item["headline"], "timeline": start, "video": at / fps})
-    roughcut.write_fcpxml(output, video, info, parts, label=label, overlays=overlays, framings=known.get("framings"))
+    roughcut.write_fcpxml(output, video, info, parts, label=label, overlays=overlays, framings=known.get("framings"),
+                          still=known.get("still"))
     return {"timeline": output, "in_cut": in_cut, "placed": placed, "missed": missed}
 
 

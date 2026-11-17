@@ -5,6 +5,7 @@
 ### Added
 
 - **Titles: topic titles.** A lower third for the question or the subject being talked about: a white panel with the programme's name on a red tab, a large headline, a red line under it (the guest) and the channel's logo on the right; it opens from the left like the name titles. One line per title, `time | headline`, filled from the chapters of Content Analysis with one click. Each title opens three seconds into its chapter on the Rough Cut timeline and waits while a name is on screen; the name titles and the topic titles keep each other when either is made again.
+- **Titles: the logo in a corner.** The channel's logo can be put in a corner of the picture (top right, top left, bottom right, bottom left) from the start of the timeline to its end, at a chosen width. It goes on a track of its own above the titles, so in Resolve it can still be moved or switched off, and running Rough Cut or Titles again keeps it.
 - **Brand folder.** The topic titles use Montserrat when it is in `.davar/brand/fonts` in the home folder, and the logo chosen on the Titles page.
 - **Content Analysis** asks the AI for a short on-screen title for each chapter, used by the topic titles.
 

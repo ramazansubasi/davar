@@ -226,7 +226,11 @@ Konuşulan soru ya da gündem için bir KJ: görüntünün altında beyaz bir pa
 
 Her satıra bir tane `zaman | başlık` yaz ya da **İçerik Analizi'nin bölümlerini al** düğmesine basarak yapay zekânın her bölüm için yazdığı ekran başlıklarıyla doldur. Zamanlar Kaba Kurgu çizelgesindeki zamanlardır; her KJ bölümünün üç saniye sonrasında açılır, ekranda isim KJ'si varsa onun bitmesini bekler. Başlığın altına o KJ'ye özel bir satır da eklenebilir: `zaman | başlık | alt satır`. KJ'ler Kaba Kurgu çizelgesine isim KJ'lerinin yanına konur; ikisinden biri yeniden üretilince öteki yerinde kalır.
 
-Görünüm kullanıcı klasöründeki `.davar/brand` marka klasöründen gelir: `fonts` klasöründe Montserrat dosyaları (`Montserrat-ExtraBold.ttf`, `-Bold`, `-SemiBold`) varsa onlar, yoksa yaygın bir kalın yazı tipi kullanılır. Logo, sayfada seçtiğin herhangi bir resimdir.
+### Köşedeki logo
+
+**Logo** kartında **Baştan sona görüntünün bir köşesine koy** kutusunu işaretleyip köşeyi (sağ üst, sol üst, sağ alt, sol alt) ve logonun genişliğini seç. Davar logoyu video boyutunda saydam bir resme çizer ve onu Kaba Kurgu çizelgesinin başından sonuna, videonun ve KJ'lerin üstünde kendi şeridine koyar. Hiçbir şey yeniden kodlanmaz: Resolve'da logo yine taşınabilir, büyütülüp küçültülebilir ya da kapatılabilir. Kaba Kurgu ya da Yazılar yeniden çalıştırılınca yerinde kalır. Gündem KJ'lerinde de aynı logo dosyası kullanılır.
+
+Gündem KJ'lerinin görünümü kullanıcı klasöründeki `.davar/brand` marka klasöründen gelir: `fonts` klasöründe Montserrat dosyaları (`Montserrat-ExtraBold.ttf`, `-Bold`, `-SemiBold`) varsa onlar, yoksa yaygın bir kalın yazı tipi kullanılır. Logo, sayfada seçtiğin herhangi bir resimdir.
 
 ## 09 Sosyal Klipler
 

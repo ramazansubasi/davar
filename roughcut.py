@@ -432,13 +432,15 @@ def cut_subtitles_path(timeline):
     return Path(timeline).with_suffix(".srt")
 
 
-def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=None):
+def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=None, still=None):
     """Write the parts of the video one after the other as a timeline.
 
     `overlays` are clips for the track above, such as name titles: dicts with "path",
     "at" (the frame of the video they start on) and "frames" (their length). They must
     have the size and frame rate of the video. `framings` gives each part a (scale, x, y)
-    as the framings function makes them; the whole picture when left out.
+    as the framings function makes them; the whole picture when left out. `still` is a
+    picture of the size of the video, such as a logo in a corner, shown on a track of its
+    own above everything from the start of the timeline to its end.
     """
     fps = info["fps"]
 
@@ -468,6 +470,10 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=
         f'duration="{t(info["frames"])}">',
         f'      <media-rep kind="original-media" src={quoteattr(video.resolve().as_uri())}/>',
         "    </asset>",
+        *((f'    <asset id="rs" name={quoteattr(Path(still).stem)} start="0s" hasVideo="1" format="r1" '
+           f'videoSources="1" duration="0s">',
+           f'      <media-rep kind="original-media" src={quoteattr(Path(still).resolve().as_uri())}/>',
+           "    </asset>") if still else ()),
         *(line for path, (resource, frames) in assets.items() for line in (
             f'    <asset id="{resource}" name={quoteattr(path.stem)} start="0s" hasVideo="1" format="r1" '
             f'videoSources="1" duration="{t(frames)}">',
@@ -487,6 +493,9 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=
         clip = (f'            <asset-clip name={quoteattr(name)} offset="{t(position)}" '
                 f'start="{t(start)}" duration="{t(end - start)}" tcFormat="NDF" ref="r2"')
         inside = list(above.get(index, []))
+        if still and index == 0:  # the picture rides on the first part and lasts the whole timeline
+            inside.append(f'              <video name={quoteattr(Path(still).stem)} lane="2" offset="{t(start)}" '
+                          f'ref="rs" start="0s" duration="{t(sum(b - a for a, b in parts))}"/>')
         scale, x, y = framings[index] if framings else WIDE
         if (scale, x, y) != WIDE:  # the picture's own adjustments come before the clips above it
             moved = f'position="{x:g} {y:g}" ' if (x, y) != (0, 0) else ""
@@ -500,7 +509,7 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=
 
 def read_timeline(path, video, info):
     """Read back a timeline written by write_fcpxml for this video: a dict with its "parts",
-    "overlays" and "framings" (as write_fcpxml takes them). None if the file is not there, is not
+    "overlays", "framings" and "still" (as write_fcpxml takes them). None if the file is not there, is not
     such a timeline, or is of another video or frame rate."""
     fps = info["fps"]
 
@@ -515,7 +524,7 @@ def read_timeline(path, video, info):
         sources = {asset.get("id"): asset.find("media-rep").get("src") for asset in root.iter("asset")}
         if sources.get("r2") != Path(video).resolve().as_uri() or frames(root.find(".//format").get("frameDuration")) != 1:
             return None
-        parts, overlays, framed = [], [], []
+        parts, overlays, framed, still = [], [], [], None
         for clip in root.find(".//spine").findall("asset-clip"):
             start = frames(clip.get("start"))
             parts.append((start, start + frames(clip.get("duration"))))
@@ -528,9 +537,11 @@ def read_timeline(path, video, info):
             for upper in clip.findall("asset-clip"):
                 overlays.append({"path": Path(url2pathname(unquote(urlparse(sources[upper.get("ref")]).path))),
                                  "at": frames(upper.get("offset")), "frames": frames(upper.get("duration"))})
+            for picture in clip.findall("video"):
+                still = Path(url2pathname(unquote(urlparse(sources[picture.get("ref")]).path)))
     except (OSError, ElementTree.ParseError, AttributeError, KeyError, TypeError, ValueError, ZeroDivisionError):
         return None
-    return {"parts": parts, "overlays": overlays, "framings": framed} if parts else None
+    return {"parts": parts, "overlays": overlays, "framings": framed, "still": still} if parts else None
 
 
 # --- candidates ---------------------------------------------------------------
@@ -847,6 +858,7 @@ def apply(state, output=None, review=False, close_up=None, places=(), speakers=2
     # name titles that Titles placed on an earlier cut of this video stay on the new one
     earlier = read_timeline(output, video, info)
     titles = [o for o in earlier["overlays"] if o["path"].is_file()] if earlier else []
+    still = earlier["still"] if earlier and earlier["still"] and earlier["still"].is_file() else None
     framed = None
     if close_up:
         turns = state.get("turns")
@@ -857,7 +869,7 @@ def apply(state, output=None, review=False, close_up=None, places=(), speakers=2
             turns = voices.find_turns(state["samples"], state["words"], len(places) or speakers,
                                       state.get("language", "tr"))
         framed = framings(parts, fps, turns, places, close_up, info["width"], info["height"], every)
-    write_fcpxml(output, video, info, parts, overlays=titles, framings=framed)
+    write_fcpxml(output, video, info, parts, overlays=titles, framings=framed, still=still)
     subtitles = None
     if state.get("words"):  # subtitles always follow the cut, never the uncut video
         subtitles = cut_subtitles_path(output)

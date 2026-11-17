@@ -60,7 +60,7 @@ class Drawing(unittest.TestCase):
             first = topics.frame(parts, box, 0.0, 8.0)
             middle = topics.frame(parts, box, 4.0, 8.0)
             last = topics.frame(parts, box, 7.99, 8.0)
-            covered = lambda image: sum(1 for a in image.getchannel("A").getdata() if a > 0)  # noqa: E731
+            covered = lambda image: sum(image.getchannel("A").histogram()[1:])  # noqa: E731
             self.assertLess(covered(first), covered(middle) / 20, "closed at the start")
             self.assertLess(covered(last), covered(middle) / 5, "closed again at the end")
             text = parts[4].getchannel("A").getbbox()

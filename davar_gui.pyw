@@ -27,6 +27,7 @@ import clips  # noqa: E402
 import content  # noqa: E402
 import dictionary  # noqa: E402
 import i18n  # noqa: E402
+import logo as corner_logo  # noqa: E402
 import memory  # noqa: E402
 import picture  # noqa: E402
 import roughcut  # noqa: E402
@@ -1135,7 +1136,7 @@ class TitlesPage(Page):
     needs_video = False
     key = "titles"
     general = ("names_on", "speakers", "duration", "spot", "colour", "timeline",
-               "topics_on", "tag", "topic_line", "topic_duration", "logo")
+               "topics_on", "tag", "topic_line", "topic_duration", "logo", "logo_on", "corner", "logo_size")
     per_video = ("topic_rows",)
 
     def build(self, parent):
@@ -1150,6 +1151,16 @@ class TitlesPage(Page):
         self.topic_line = tk.StringVar()
         self.topic_duration = tk.DoubleVar(value=topics.DURATION)
         self.logo = tk.StringVar()
+        self.logo_on = tk.BooleanVar(value=False)
+        self.corners = {_("Top right"): "top right", _("Top left"): "top left",
+                        _("Bottom right"): "bottom right", _("Bottom left"): "bottom left"}
+        self.corner_label = tk.StringVar(value=_("Top right"))
+        self.logo_size = tk.DoubleVar(value=corner_logo.SIZE)
+        self.corner = Held(lambda: self.corners[self.corner_label.get()],
+                           lambda corner: self.corner_label.set(next(
+                               (label for label, value in self.corners.items() if value == corner),
+                               self.corner_label.get())))
+        self.corner_label.trace_add("write", lambda *_args: self.app.remember_soon())
         # remembered by its meaning, not by its label, which changes with the interface language
         self.spot = Held(lambda: self.positions[self.position.get()],
                          lambda spot: self.position.set(next(
@@ -1219,16 +1230,36 @@ class TitlesPage(Page):
             ttk.Entry(box, textvariable=variable).grid(row=row, column=1, sticky="ew", padx=(12, 0), pady=(8, 0))
             ttk.Label(box, text=hint, style="CardMuted.TLabel").grid(row=row, column=2, sticky="w", padx=(12, 0),
                                                                    pady=(8, 0))
-        ttk.Label(box, text=_("Logo"), style="Card.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        ttk.Entry(box, textvariable=self.logo).grid(row=2, column=1, sticky="ew", padx=(12, 0), pady=(8, 0))
-        ttk.Button(box, text=_("Choose"), command=self._choose_logo).grid(row=2, column=2, sticky="w", padx=(12, 0),
-                                                                          pady=(8, 0))
-        ttk.Label(box, text=_("Time on screen"), style="Card.TLabel").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(box, text=_("Time on screen"), style="Card.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
         ttk.Spinbox(box, textvariable=self.topic_duration, from_=3, to=30, increment=0.5, width=6,
-                    format="%.1f").grid(row=3, column=1, sticky="w", padx=(12, 0), pady=(8, 0))
+                    format="%.1f").grid(row=2, column=1, sticky="w", padx=(12, 0), pady=(8, 0))
         self.topic_note = ttk.Label(g, text="", style="CardMuted.TLabel", wraplength=680, justify="left")
         self.topic_note.pack(anchor="w", pady=(8, 0))
         self.topics_on.set(False)  # let the card grey out its boxes
+
+        g = self.card(parent, None, _("Logo"),
+                      _("The logo shown on the topic titles, and if you like in a corner of the picture from the "
+                        "start to the end."))
+        g.columnconfigure(1, weight=1)
+        ttk.Label(g, text=_("Logo file"), style="Card.TLabel").grid(row=0, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(g, textvariable=self.logo).grid(row=0, column=1, columnspan=2, sticky="ew", padx=(12, 0),
+                                                 pady=(8, 0))
+        ttk.Button(g, text=_("Choose"), command=self._choose_logo).grid(row=0, column=3, sticky="w", padx=(12, 0),
+                                                                        pady=(8, 0))
+        ttk.Checkbutton(g, text=_("Put it in a corner of the picture, from the start to the end"),
+                        variable=self.logo_on, style="Card.TCheckbutton").grid(row=1, column=0, columnspan=4,
+                                                                               sticky="w", pady=(10, 0))
+        ttk.Label(g, text=_("Corner"), style="Card.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Combobox(g, textvariable=self.corner_label, values=list(self.corners), width=14,
+                     state="readonly").grid(row=2, column=1, sticky="w", padx=(12, 0), pady=(8, 0))
+        ttk.Label(g, text=_("Width"), style="Card.TLabel").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        row = ttk.Frame(g, style="Card.TFrame")
+        row.grid(row=3, column=1, columnspan=3, sticky="w", padx=(12, 0), pady=(8, 0))
+        ttk.Spinbox(row, textvariable=self.logo_size, from_=3, to=40, increment=1, width=6,
+                    format="%.0f").pack(side="left")
+        ttk.Label(row, text="  " + _("percent of the picture's width"), style="CardMuted.TLabel").pack(side="left")
+        for variable in (self.logo_on, self.logo):
+            variable.trace_add("write", lambda *_args: self.refresh_state())
 
     def _set_topic_rows(self, text):
         self.topic_box.delete("1.0", "end")
@@ -1295,10 +1326,12 @@ class TitlesPage(Page):
             else "" if font_ok() else _("Montserrat is not in {folder}; a common bold font will be used.").format(
                 folder=topics.BRAND / "fonts")))
         names, topic_rows = self.names_on.get() and self._rows(), self.topics_on.get() and self._topic_lines()
-        if not names and not topic_rows:
+        if not names and not topic_rows and not self.logo_on.get():
             return _("Write at least one name or one topic")
-        if topic_rows and not video:
+        if (topic_rows or self.logo_on.get()) and not video:
             return _("Choose a video at the top first")
+        if self.logo_on.get() and not (logo and Path(logo).is_file()):
+            return _("Choose the logo file")
         if not names:
             return ""
         if not video and not self.app.folder.get().strip():
@@ -1344,7 +1377,9 @@ class TitlesPage(Page):
             topics=dict(rows=topic_rows, tag=self.tag.get().strip() or self._programme(),
                         line=self.topic_line.get(), video=video, folder=self.app.output_folder(),
                         duration=float(self.topic_duration.get()),
-                        logo=logo if logo and Path(logo).is_file() else None) if topic_rows else None)
+                        logo=logo if logo and Path(logo).is_file() else None) if topic_rows else None,
+            corner=dict(video=video, logo=logo, corner=self.corner.get(), size=float(self.logo_size.get()),
+                        folder=self.app.output_folder()) if self.logo_on.get() else None)
 
     def run(self, settings, progress):
         result = {}
@@ -1360,11 +1395,16 @@ class TitlesPage(Page):
             result["topics"] = topics.make_topics(rows, progress=lambda p, t: progress(start + p * (100 - start) / 100, t),
                                                   **settings["topics"])
             result["output"] = result["topics"]["output"]
+        if settings["corner"]:  # last, so that it goes onto the timeline the titles were written to
+            result["corner"] = corner_logo.place(**settings["corner"])
+            result["output"] = result["corner"]["output"]
         return result
 
     def result_text(self, result):
         return "\n\n".join(text for text in (titles.report(result["names"]) if "names" in result else "",
-                                               topics.report(result["topics"]) if "topics" in result else "") if text)
+                                               topics.report(result["topics"]) if "topics" in result else "",
+                                               corner_logo.report(result["corner"]) if "corner" in result else "")
+                             if text)
 
 
 class SocialClipsPage(Page):
