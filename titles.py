@@ -274,7 +274,10 @@ def place_on_timeline(video, people, items, folder=None, words=None, language="t
         turns = speakers.find_turns(samples, words, len(people), language)
     if progress:
         progress(96, _("Writing the timeline"))
-    overlays, placed, missed = [], [], []
+    # titles of other kinds placed before (topic titles) stay; the names are placed anew
+    overlays = [o for o in (known["overlays"] if known else []) if not o["path"].name.startswith("lowerthird_")
+                and o["path"].is_file()]
+    placed, missed = [], []
     for person, item, moment in zip(people, items, plan_places(people, turns, start, end)):
         place = roughcut.timeline_place(parts, round(moment * fps)) if moment is not None else None
         if place is None:

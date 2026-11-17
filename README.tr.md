@@ -22,7 +22,7 @@ On iş akışından altısı çalışıyor, dördü planlandı.
 | 04 | Kaba Kurgu | çalışıyor | Sessizlikleri, "ııı / eee" duraksamalarını ve dolgu kelimelerini bulur; adayları onayına sunar; Resolve çizelgesi (`.fcpxml`) yazar |
 | 05 | Çok Kamera Kurgusu | planlandı | Kim konuşuyorsa onun kamerasını seçer |
 | 06 | İçerik Analizi | çalışıyor | YouTube metinlerini seçtiğin bir yapay zekâ sohbetine yazdırır: başlıklar, bölüm zamanlı açıklama, etiketler, sosyal klip adayları |
-| 07 | Yazılar | çalışıyor | Konuşmacı adı ve unvanı için saydam zeminli, yumuşak giriş-çıkışlı KJ (alt bant) videosu üretir ve onu, o kişinin ilk konuştuğu yere zaman çizelgesine yerleştirir |
+| 07 | Yazılar | çalışıyor | Konuşmacı adı ve unvanı, bir de konuşulan gündem için saydam zeminli, yumuşak giriş-çıkışlı KJ (alt bant) videoları üretir ve zaman çizelgesine yerleştirir |
 | 08 | Görsel Malzeme | planlandı | Araya girecek fotoğraf ve belgelerin yerleşimi |
 | 09 | Sosyal Klipler | çalışıyor | Seçilen aralığı başlık, altyazı ve kapakla dikey Reels / Shorts olarak keser |
 | 10 | Yayın | planlandı | Kapak görselinin yazısı ve görüntüsü |
@@ -219,6 +219,14 @@ Ali Demir | Belediye Başkanı | sağ
 - Kaba Kurgu yeniden çalıştırıldığında adlar yerinde kalır.
 
 Sesler bilgisayarında, ek bir indirme olmadan ayırt edilir. Sesleri birbirinden belirgin biçimde farklı birkaç kişi için yapılmıştır; konuşma sırasının değiştiği an ancak birkaç saniye yaklaşıklıkla bilinir, ad bu yüzden konuşmacı başladıktan biraz sonra gelir.
+
+### Gündem KJ'leri
+
+Konuşulan soru ya da gündem için bir KJ: görüntünün altında beyaz bir panel, kırmızı sekmede program adı, büyük başlık, altında kırmızı bir satır (konuk için) ve sağda logonuz. İsim KJ'leri gibi soldan açılır, varsayılan olarak 8 saniye kalır.
+
+Her satıra bir tane `zaman | başlık` yaz ya da **İçerik Analizi'nin bölümlerini al** düğmesine basarak yapay zekânın her bölüm için yazdığı ekran başlıklarıyla doldur. Zamanlar Kaba Kurgu çizelgesindeki zamanlardır; her KJ bölümünün üç saniye sonrasında açılır, ekranda isim KJ'si varsa onun bitmesini bekler. Başlığın altına o KJ'ye özel bir satır da eklenebilir: `zaman | başlık | alt satır`. KJ'ler Kaba Kurgu çizelgesine isim KJ'lerinin yanına konur; ikisinden biri yeniden üretilince öteki yerinde kalır.
+
+Görünüm kullanıcı klasöründeki `.davar/brand` marka klasöründen gelir: `fonts` klasöründe Montserrat dosyaları (`Montserrat-ExtraBold.ttf`, `-Bold`, `-SemiBold`) varsa onlar, yoksa yaygın bir kalın yazı tipi kullanılır. Logo, sayfada seçtiğin herhangi bir resimdir.
 
 ## 09 Sosyal Klipler
 

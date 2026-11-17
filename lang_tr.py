@@ -531,12 +531,12 @@ TRANSLATIONS = {
 
     # --- interface: titles ----------------------------------------------------
     "Titles": "Yazılar",
-    "Makes a lower third for a speaker's name and title: a ready video with a transparent "
-    "background and a soft entrance and exit. Davar can put it on the timeline where the "
-    "speaker first speaks; or drag it onto the track above the video in Resolve.":
-        "Konuşmacı adı ve unvanı için KJ (alt bant) üretir: saydam zeminli, girişi ve çıkışı "
-        "yumuşak hazır bir video. Davar onu konuşmacının ilk konuştuğu yere, zaman çizelgesine "
-        "koyabilir; istersen Resolve'da videonun üstündeki şeride kendin sürüklersin.",
+    "Makes lower thirds: a speaker's name and title, and the topic being talked about. "
+    "Ready videos with a transparent background and a soft entrance and exit; Davar puts "
+    "them on the timeline, or drag them onto the track above the video in Resolve.":
+        "KJ (alt bant) üretir: konuşmacının adı ve unvanı, bir de konuşulan gündem. Saydam zeminli, girişi "
+        "ve çıkışı yumuşak hazır videolar; Davar onları zaman çizelgesine koyar, istersen Resolve'da "
+        "videonun üstündeki şeride kendin sürüklersin.",
     "Speakers": "Konuşmacılar",
     "One person per line: Name | Title. The title is optional. "
     "A separate file is written for each person. To put one name elsewhere than "
@@ -556,7 +556,43 @@ TRANSLATIONS = {
     "Accent colour": "Vurgu rengi",
     "Colour of the stripe and the title band; example #E30613":
         "Şerit ve unvan bandının rengi; örnek #E30613",
-    "Topic titles that appear as the subject changes.": "Konu değiştikçe ekrana gelen konu başlıkları.",
+    "Topic titles": "Gündem KJ'leri",
+    "A title for the question or the subject, at the bottom of the picture with the logo "
+    "on the right. One per line: time | headline. The time is on the Rough Cut timeline; "
+    "each title opens a few seconds later, and waits if a name is on screen. A line of "
+    "its own under the headline can be added: time | headline | line.":
+        "Soru ya da gündem için, görüntünün altında, sağında logo olan bir KJ. Her satıra bir tane: "
+        "zaman | başlık. Zaman Kaba Kurgu çizelgesindeki zamandır; KJ birkaç saniye sonra açılır, ekranda "
+        "isim KJ'si varsa onun bitmesini bekler. Başlığın altına o KJ'ye özel bir satır da eklenebilir: "
+        "zaman | başlık | alt satır.",
+    "Take the chapters of Content Analysis": "İçerik Analizi'nin bölümlerini al",
+    "Tab": "Sekme",
+    "the name of the programme; empty: the one written on Content Analysis":
+        "programın adı; boş bırakılırsa İçerik Analizi'ne yazılan",
+    "Line under it": "Alt satır",
+    "e.g. GUEST: NAME · TITLE; the same on every title": "örneğin KONUK: AD SOYAD · UNVAN; her KJ'de aynı",
+    "Logo": "Logo",
+    "Choose the logo": "Logoyu seç",
+    "Pictures": "Resimler",
+    "No chapters yet: write the texts on the Content Analysis page first.":
+        "Henüz bölüm yok: önce İçerik Analizi sayfasında metinleri yaz.",
+    "The logo file was not found.": "Logo dosyası bulunamadı.",
+    "Montserrat is not in {folder}; a common bold font will be used.":
+        "Montserrat {folder} içinde yok; yaygın bir kalın yazı tipi kullanılacak.",
+    "Write at least one name or one topic": "En az bir ad ya da bir gündem başlığı yaz",
+    "the logo could not be opened: {path}": "logo açılamadı: {path}",
+    "a topic title needs a headline.": "gündem KJ'si için bir başlık gerekir.",
+    "a topic title must last between 3 and 60 seconds.": "gündem KJ'si 3 ile 60 saniye arasında kalmalı.",
+    "could not read the line “{line}”. It reads: time | headline | line under it":
+        "“{line}” satırı okunamadı. Biçimi şöyle: zaman | başlık | alt satır",
+    "write at least one topic: time | headline": "en az bir gündem başlığı yaz: zaman | başlık",
+    "Drawing the topic title {n} of {count}": "Gündem KJ'si çiziliyor: {n} / {count}",
+    "Topic titles: {n}, {seconds:.0f} s each, transparent background (ProRes 4444)":
+        "Gündem KJ'leri: {n} adet, her biri {seconds:.0f} sn, saydam zeminli (ProRes 4444)",
+    "Montserrat was not found in {folder}; {font} was used.":
+        "Montserrat {folder} içinde bulunamadı; {font} kullanıldı.",
+    "{headline}: {timeline} on the timeline": "{headline}: çizelgede {timeline}",
+    "{headline}: no room left before the end; not placed": "{headline}: sona kadar yer kalmadı; yerleştirilmedi",
     "Place them on the timeline": "Zaman çizelgesine yerleştir",
     "Write the speakers in the order they first speak. Davar listens for who speaks when "
     "and puts each name on the track above the video, a few seconds after that person "
@@ -580,7 +616,6 @@ TRANSLATIONS = {
         "Boyut ve kare hızı seçili videodan alınır.",
     "No video selected: made at 1920x1080, 30 frames per second.":
         "Video seçilmedi: 1920x1080, saniyede 30 kare olarak üretilir.",
-    "Write at least one name": "En az bir ad yaz",
     "Choose an output folder to make one without a video": "Video seçmeden üretmek için çıktı klasörü seç",
 
     # --- interface: social clips ----------------------------------------------

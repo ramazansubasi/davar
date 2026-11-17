@@ -36,7 +36,7 @@ Bu dökümden YouTube'a yükleme için şunları hazırla. YALNIZCA aşağıdaki
   "titles": ["beş başlık önerisi"],
   "summary": "videonun iki-üç cümlelik özeti",
   "description": "YouTube açıklaması",
-  "chapters": [{{"time": "0:00", "title": "bölüm başlığı"}}],
+  "chapters": [{{"time": "0:00", "title": "bölüm başlığı", "kj": "EKRAN YAZISI"}}],
   "tags": ["etiket"],
   "clips": [{{"start": "12:30", "end": "13:25", "headline": "klip başlığı", "why": "neden ilgi çeker"}}]
 }}
@@ -45,6 +45,7 @@ Kurallar:
 - Başlıklar: en çok 70 karakter; merak uyandırsın ama tıklama tuzağı olmasın.
 - Açıklama: iki-üç kısa paragraf; bölüm listesini açıklamaya yazma.
 - Bölümler: ilki 0:00; konu değiştikçe yeni bölüm; her biri en az bir dakika; toplam 5-12 bölüm. Zamanları dökümdeki satır zamanlarından seç.
+- Her bölümün "kj" alanı, o bölüm başlarken ekranın altında gösterilecek yazıdır: sorulan soru ya da konunun kendisi, en çok 45 karakter, büyük harfle. Örnek: "TUZLA'NIN İMAR SORUNU NASIL ÇÖZÜLÜR?"
 - Etiketler: 10-15 tane.
 - Klipler: 3-5 tane; her biri 30-90 saniye; kendi başına anlaşılan ve güçlü bir sözle başlayan bir bölüm. Başlangıç ve bitişi dökümdeki satır zamanlarından seç.
 - Dökümde yanlış yazılmış sözcükleri, özellikle özel adları, doğru yazımıyla kullan.
@@ -69,7 +70,7 @@ From this transcript prepare the following for the upload. Answer ONLY in the fo
   "titles": ["five title suggestions"],
   "summary": "a summary of the video in two or three sentences",
   "description": "the YouTube description",
-  "chapters": [{{"time": "0:00", "title": "chapter title"}}],
+  "chapters": [{{"time": "0:00", "title": "chapter title", "kj": "ON-SCREEN TITLE"}}],
   "tags": ["tag"],
   "clips": [{{"start": "12:30", "end": "13:25", "headline": "clip headline", "why": "why it draws attention"}}]
 }}
@@ -78,6 +79,7 @@ Rules:
 - Titles: at most 70 characters; make people curious, without clickbait.
 - Description: two or three short paragraphs; do not put the chapter list in it.
 - Chapters: the first at 0:00; a new one when the subject changes; each at least a minute; 5-12 in all. Take the times from the times of the transcript lines.
+- The "kj" of each chapter is the line shown at the bottom of the screen as the chapter begins: the question asked or the subject itself, at most 45 characters, in capitals. Example: "HOW CAN THE ZONING PROBLEM BE SOLVED?"
 - Tags: 10-15.
 - Clips: 3-5; each 30-90 seconds; a passage that stands on its own and opens with a strong sentence. Take the start and end from the times of the transcript lines.
 - Where the transcript misspells words, proper names above all, use the right spelling.
@@ -199,7 +201,7 @@ def parse_answer(text, length):
     if not isinstance(answer, dict):
         raise DavarError(_("the answer could not be read. Paste the whole answer of the AI chat; it should be "
                            "one block that starts with {{ and ends with }}."))
-    chapters = []
+    chapters, screen = [], {}
     for chapter in answer.get("chapters") or []:
         try:
             at, title = _time(chapter["time"]), str(chapter["title"]).strip()
@@ -207,6 +209,7 @@ def parse_answer(text, length):
             continue
         if title and 0 <= at < length:
             chapters.append((at, title))
+            screen[at] = str(chapter.get("kj") or "").strip() or title
     chapters.sort()
     if chapters:
         chapters[0] = (0.0, chapters[0][1])  # YouTube needs the first at 0:00
@@ -223,9 +226,11 @@ def parse_answer(text, length):
         if 0 <= start < end <= length + 1:
             clips.append({"start": start, "end": min(end, length), "headline": str(clip.get("headline", "")).strip(),
                           "why": str(clip.get("why", "")).strip()})
+    # the on-screen titles of the chapters, for the topic titles; not the opening chapter
+    topics = [(at, screen.get(at, title)) for at, title in kept[1:]]
     return {"titles": _texts(answer.get("titles"))[:10], "summary": str(answer.get("summary") or "").strip(),
             "description": str(answer.get("description") or "").strip(), "chapters": kept,
-            "tags": _texts(answer.get("tags")), "clips": clips}
+            "tags": _texts(answer.get("tags")), "clips": clips, "topics": topics}
 
 
 def write_texts(path, answer, parts, fps, language="tr", on_timeline=True):
@@ -294,7 +299,8 @@ def finish(video, answer_text, folder=None, language="tr"):
     target = Path(folder) if folder else video.parent
     output = target / (video.stem + "_youtube.txt")
     write_texts(output, answer, parts, fps, language, on_timeline)
-    saved = {**answer, "chapters": [[at, title] for at, title in answer["chapters"]], "on_timeline": on_timeline}
+    saved = {**answer, "chapters": [[at, title] for at, title in answer["chapters"]],
+             "topics": [[at, title] for at, title in answer["topics"]], "on_timeline": on_timeline}
     (target / (video.stem + "_content.json")).write_text(json.dumps(saved, ensure_ascii=False, indent=2),
                                                          encoding="utf-8")
     return {"output": output, "answer": answer, "on_timeline": on_timeline}

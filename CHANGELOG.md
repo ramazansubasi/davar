@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Titles: topic titles.** A lower third for the question or the subject being talked about: a white panel with the programme's name on a red tab, a large headline, a red line under it (the guest) and the channel's logo on the right; it opens from the left like the name titles. One line per title, `time | headline`, filled from the chapters of Content Analysis with one click. Each title opens three seconds into its chapter on the Rough Cut timeline and waits while a name is on screen; the name titles and the topic titles keep each other when either is made again.
+- **Brand folder.** The topic titles use Montserrat when it is in `.davar/brand/fonts` in the home folder, and the logo chosen on the Titles page.
+- **Content Analysis** asks the AI for a short on-screen title for each chapter, used by the topic titles.
+
+### Changed
+
+- On the Titles page the speakers and the topic titles each have their own tick, so either can be made alone.
+
 ## 0.3.0 - 2026-11-17
 
 ### Added

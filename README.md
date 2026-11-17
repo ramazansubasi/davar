@@ -22,7 +22,7 @@ Six of the ten workflows work; four are planned.
 | 04 | Rough Cut | works | Finds silences, "uh / um" hesitations and filler words, lets you review the candidates, writes a Resolve timeline (`.fcpxml`) |
 | 05 | Multicam Edit | planned | Picks the camera of whoever is speaking |
 | 06 | Content Analysis | works | Has an AI chat of your choice write the YouTube texts: titles, description with chapters, tags, social clip candidates |
-| 07 | Titles | works | Makes a transparent lower third with a soft entrance and exit for a speaker's name and title, and places it on the timeline where that speaker first speaks |
+| 07 | Titles | works | Makes a transparent lower third with a soft entrance and exit for a speaker's name and title, and for the topic being talked about, and places them on the timeline |
 | 08 | Visual Assets | planned | Places photos and documents to cut in |
 | 09 | Social Clips | works | Cuts a chosen range into a vertical Reels / Shorts video with headline, subtitles and cover |
 | 10 | Publish | planned | Thumbnail text and picture |
@@ -225,6 +225,14 @@ With **Place them on the timeline** ticked, Davar also puts each name on the tra
 - Running Rough Cut again keeps the names where they are.
 
 The voices are told apart on your computer, with no extra download. It is made for a few people with clearly different voices; the moment a turn changes is known only to within a few seconds, which is why the name appears a little after the speaker starts.
+
+### Topic titles
+
+A lower third for the question or the subject being talked about: a white panel along the bottom of the picture, the programme's name on a red tab, a large headline, a red line under it (for the guest) and your logo on the right. It opens from the left, like the name titles, and stays 8 seconds by default.
+
+Write one per line as `time | headline`, or press **Take the chapters of Content Analysis** to fill them from the on-screen titles the AI wrote for each chapter. The times are on the Rough Cut timeline; each title opens three seconds into its chapter and waits while a name title is on screen. A line of its own under the headline can be added: `time | headline | line`. The titles go onto the Rough Cut timeline next to the name titles, and making either again keeps the other.
+
+The look comes from a brand folder, `.davar/brand` in your home folder: Montserrat is used when its files (`Montserrat-ExtraBold.ttf`, `-Bold`, `-SemiBold`) are in its `fonts` folder, a common bold font otherwise. The logo is any picture you choose on the page.
 
 ## 09 Social Clips
 

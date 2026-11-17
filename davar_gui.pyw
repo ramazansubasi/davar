@@ -32,6 +32,7 @@ import picture  # noqa: E402
 import roughcut  # noqa: E402
 import speakers  # noqa: E402
 import titles  # noqa: E402
+import topics  # noqa: E402
 import transcript  # noqa: E402
 from common import (SAMPLE_RATE, VERSION, DavarError, format_time, parse_ranges,  # noqa: E402
                     parse_time, run, video_info)
@@ -55,6 +56,11 @@ ACCENT = "#FF7880"
 CUT = "#FF4B55"  # the sound or word that will be cut
 AMBER = "#F2B84B"  # low confidence
 SPEECH_LANGUAGES = ["tr", "en", "de", "fr", "es", "it", "pt", "nl", "ru", "ar"]
+
+
+def font_ok():
+    """Whether the brand's Montserrat is there for the topic titles."""
+    return topics.font_path("ExtraBold")[1]
 
 
 def media_types():
@@ -1123,12 +1129,14 @@ class TranscriptWindow(tk.Toplevel):
 
 class TitlesPage(Page):
     name = N_("Titles")
-    description = N_("Makes a lower third for a speaker's name and title: a ready video with a transparent "
-                     "background and a soft entrance and exit. Davar can put it on the timeline where the "
-                     "speaker first speaks; or drag it onto the track above the video in Resolve.")
+    description = N_("Makes lower thirds: a speaker's name and title, and the topic being talked about. "
+                     "Ready videos with a transparent background and a soft entrance and exit; Davar puts "
+                     "them on the timeline, or drag them onto the track above the video in Resolve.")
     needs_video = False
     key = "titles"
-    general = ("speakers", "duration", "spot", "colour", "timeline")
+    general = ("names_on", "speakers", "duration", "spot", "colour", "timeline",
+               "topics_on", "tag", "topic_line", "topic_duration", "logo")
+    per_video = ("topic_rows",)
 
     def build(self, parent):
         self.duration = tk.DoubleVar(value=6.0)
@@ -1136,6 +1144,12 @@ class TitlesPage(Page):
         self.position = tk.StringVar(value=_("Bottom left"))
         self.colour = tk.StringVar(value="#E30613")
         self.timeline = tk.BooleanVar(value=True)
+        self.names_on = tk.BooleanVar(value=True)
+        self.topics_on = tk.BooleanVar(value=False)
+        self.tag = tk.StringVar()
+        self.topic_line = tk.StringVar()
+        self.topic_duration = tk.DoubleVar(value=topics.DURATION)
+        self.logo = tk.StringVar()
         # remembered by its meaning, not by its label, which changes with the interface language
         self.spot = Held(lambda: self.positions[self.position.get()],
                          lambda spot: self.position.set(next(
@@ -1144,7 +1158,7 @@ class TitlesPage(Page):
         self.speakers = Held(lambda: self.people.get("1.0", "end-1c"), self._set_speakers)
         self.position.trace_add("write", lambda *_args: self.app.remember_soon())
 
-        g = self.card(parent, None, _("Speakers"),
+        g = self.card(parent, self.names_on, _("Speakers"),
                       _("One person per line: Name | Title. The title is optional. "
                         "A separate file is written for each person. To put one name elsewhere than "
                         "the others, add its place on the screen, as the viewer sees it (left, centre, "
@@ -1181,7 +1195,80 @@ class TitlesPage(Page):
         self.size_note = ttk.Label(g, text="", style="CardMuted.TLabel")
         self.size_note.grid(row=3, column=0, columnspan=3, sticky="w", pady=(10, 0))
 
-        self.card(parent, None, _("Coming next"), _("Topic titles that appear as the subject changes."))
+        g = self.card(parent, self.topics_on, _("Topic titles"),
+                      _("A title for the question or the subject, at the bottom of the picture with the logo "
+                        "on the right. One per line: time | headline. The time is on the Rough Cut timeline; "
+                        "each title opens a few seconds later, and waits if a name is on screen. A line of "
+                        "its own under the headline can be added: time | headline | line."))
+        self.topic_box = tk.Text(g, height=6, bg=FIELD, fg=TEXT, insertbackground=TEXT, bd=0, highlightthickness=1,
+                                 highlightbackground=BORDER, highlightcolor=ACCENT, font=("Segoe UI", 11), padx=8,
+                                 pady=6, wrap="none")
+        self.topic_box.pack(fill="x", pady=(8, 0))
+        self.topic_box.bind("<KeyRelease>", lambda _e: (self.refresh_state(), self.app.remember_soon()))
+        self.topic_rows = Held(lambda: self.topic_box.get("1.0", "end-1c"), self._set_topic_rows)
+        self.chapters_button = ttk.Button(g, text=_("Take the chapters of Content Analysis"),
+                                          command=self._take_chapters)
+        self.chapters_button.pack(anchor="w", pady=(8, 0))
+        box = ttk.Frame(g, style="Card.TFrame")
+        box.pack(fill="x", pady=(4, 0))
+        box.columnconfigure(1, weight=1)
+        for row, (label, variable, hint) in enumerate((
+                (_("Tab"), self.tag, _("the name of the programme; empty: the one written on Content Analysis")),
+                (_("Line under it"), self.topic_line, _("e.g. GUEST: NAME · TITLE; the same on every title")))):
+            ttk.Label(box, text=label, style="Card.TLabel").grid(row=row, column=0, sticky="w", pady=(8, 0))
+            ttk.Entry(box, textvariable=variable).grid(row=row, column=1, sticky="ew", padx=(12, 0), pady=(8, 0))
+            ttk.Label(box, text=hint, style="CardMuted.TLabel").grid(row=row, column=2, sticky="w", padx=(12, 0),
+                                                                   pady=(8, 0))
+        ttk.Label(box, text=_("Logo"), style="Card.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(box, textvariable=self.logo).grid(row=2, column=1, sticky="ew", padx=(12, 0), pady=(8, 0))
+        ttk.Button(box, text=_("Choose"), command=self._choose_logo).grid(row=2, column=2, sticky="w", padx=(12, 0),
+                                                                          pady=(8, 0))
+        ttk.Label(box, text=_("Time on screen"), style="Card.TLabel").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        ttk.Spinbox(box, textvariable=self.topic_duration, from_=3, to=30, increment=0.5, width=6,
+                    format="%.1f").grid(row=3, column=1, sticky="w", padx=(12, 0), pady=(8, 0))
+        self.topic_note = ttk.Label(g, text="", style="CardMuted.TLabel", wraplength=680, justify="left")
+        self.topic_note.pack(anchor="w", pady=(8, 0))
+        self.topics_on.set(False)  # let the card grey out its boxes
+
+    def _set_topic_rows(self, text):
+        self.topic_box.delete("1.0", "end")
+        self.topic_box.insert("1.0", text)
+
+    def _topic_lines(self):
+        return [x for x in self.topic_box.get("1.0", "end").splitlines() if x.strip()]
+
+    def _content_file(self, video):
+        try:
+            return self.app.output_folder() / (video.stem + "_content.json")
+        except DavarError:
+            return None
+
+    def _take_chapters(self):
+        """Fill the box with the on-screen titles Content Analysis wrote for the chapters."""
+        video = self._video()
+        path = self._content_file(video) if video else None
+        try:
+            saved = json.loads(path.read_text(encoding="utf-8")) if path and path.is_file() else {}
+        except ValueError:
+            saved = {}
+        found = saved.get("topics") or [chapter for chapter in saved.get("chapters", [])[1:]]
+        if not found:
+            self.app.log(_("No chapters yet: write the texts on the Content Analysis page first."), error=True)
+            return
+        self._set_topic_rows("\n".join(f"{content.clock(at)} | {topics.upper(title)}" for at, title in found))
+        self.topics_on.set(True)
+        self.refresh_state()
+        self.app.remember_soon()
+
+    def _choose_logo(self):
+        path = filedialog.askopenfilename(title=_("Choose the logo"), filetypes=[
+            (_("Pictures"), "*.png *.jpg *.jpeg *.webp"), (_("All files"), "*.*")])
+        if path:
+            self.logo.set(os.path.normpath(path))
+
+    def _programme(self):
+        page = next((p for p in self.app.pages if isinstance(p, ContentAnalysisPage)), None)
+        return page.programme.get().strip() if page is not None else ""
 
     def _set_speakers(self, text):
         self.people.delete("1.0", "end")
@@ -1200,8 +1287,20 @@ class TitlesPage(Page):
             text=_("The size and frame rate are taken from the selected video.") if video
             else _("No video selected: made at 1920x1080, 30 frames per second."))
         self.timeline_note.configure(text=self._timeline_note(video))
-        if not self._rows():
-            return _("Write at least one name")
+        path = self._content_file(video) if video else None
+        self.chapters_button.configure(state="normal" if path and path.is_file() else "disabled")
+        logo = self.logo.get().strip()
+        self.topic_note.configure(text=(
+            _("The logo file was not found.") if logo and not Path(logo).is_file()
+            else "" if font_ok() else _("Montserrat is not in {folder}; a common bold font will be used.").format(
+                folder=topics.BRAND / "fonts")))
+        names, topic_rows = self.names_on.get() and self._rows(), self.topics_on.get() and self._topic_lines()
+        if not names and not topic_rows:
+            return _("Write at least one name or one topic")
+        if topic_rows and not video:
+            return _("Choose a video at the top first")
+        if not names:
+            return ""
         if not video and not self.app.folder.get().strip():
             return _("Choose an output folder to make one without a video")
         try:
@@ -1228,20 +1327,44 @@ class TitlesPage(Page):
     def read_settings(self):
         video = self._video()
         saved = self.app.transcript() if video else None
-        titles.parse_people(self._rows())  # a line that cannot be read stops here, with its reason
-        return dict(rows=self._rows(), video=video, folder=self.app.output_folder(),
-                    duration=float(self.duration.get()), colour=self.colour.get(),
-                    position=self.positions[self.position.get()],
-                    timeline=self.timeline.get() and video is not None,
-                    words=saved["words"] if saved else None,
-                    language=saved.get("language", "tr") if saved else "tr")
+        names = self.names_on.get() and self._rows()
+        topic_rows = self.topics_on.get() and self._topic_lines()
+        if names:
+            titles.parse_people(self._rows())  # a line that cannot be read stops here, with its reason
+        if topic_rows:
+            topics.parse_topics(topic_rows)
+        logo = self.logo.get().strip()
+        return dict(
+            names=dict(rows=self._rows(), video=video, folder=self.app.output_folder(),
+                       duration=float(self.duration.get()), colour=self.colour.get(),
+                       position=self.positions[self.position.get()],
+                       timeline=self.timeline.get() and video is not None,
+                       words=saved["words"] if saved else None,
+                       language=saved.get("language", "tr") if saved else "tr") if names else None,
+            topics=dict(rows=topic_rows, tag=self.tag.get().strip() or self._programme(),
+                        line=self.topic_line.get(), video=video, folder=self.app.output_folder(),
+                        duration=float(self.topic_duration.get()),
+                        logo=logo if logo and Path(logo).is_file() else None) if topic_rows else None)
 
     def run(self, settings, progress):
-        rows = settings.pop("rows")
-        return titles.make_lower_thirds(rows, progress=progress, **settings)
+        result = {}
+        if settings["names"]:
+            names = settings["names"]
+            share = 0.5 if settings["topics"] else 1.0
+            rows = names.pop("rows")
+            result["names"] = titles.make_lower_thirds(rows, progress=lambda p, t: progress(p * share, t), **names)
+            result["output"] = result["names"]["output"]
+        if settings["topics"]:
+            start = 50 if settings["names"] else 0
+            rows = settings["topics"].pop("rows")
+            result["topics"] = topics.make_topics(rows, progress=lambda p, t: progress(start + p * (100 - start) / 100, t),
+                                                  **settings["topics"])
+            result["output"] = result["topics"]["output"]
+        return result
 
     def result_text(self, result):
-        return titles.report(result)
+        return "\n\n".join(text for text in (titles.report(result["names"]) if "names" in result else "",
+                                               topics.report(result["topics"]) if "topics" in result else "") if text)
 
 
 class SocialClipsPage(Page):
