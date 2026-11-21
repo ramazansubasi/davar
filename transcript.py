@@ -157,6 +157,19 @@ def write_text(record, path):
     return len(rows)
 
 
+def model_on_disk(model):
+    """Whether the speech model `model` (a size such as "small", or a folder holding one) is
+    already on this computer, so that loading it downloads nothing. Asks nothing of the internet."""
+    if Path(model).is_dir():
+        return True
+    try:
+        from faster_whisper import download_model
+        download_model(model, local_files_only=True)
+    except (ImportError, OSError, ValueError):  # not downloaded yet (FileNotFoundError), or an unknown size
+        return False
+    return True
+
+
 def transcribe(video, folder=None, srt=False, text=False, language="tr", model="small",
                force=False, progress=None):
     """Transcribe the speech and save it. A valid saved transcript is reused unless `force`."""
@@ -180,7 +193,7 @@ def transcribe(video, folder=None, srt=False, text=False, language="tr", model="
         duration = len(audio) / 16000
         if duration < 1:
             raise DavarError(_("no audio was found in the video."))
-        step(4, _("Loading the model (downloaded on first use)"))
+        step(4, _("Loading the model") if model_on_disk(model) else _("Loading the model (downloaded on first use)"))
         whisper = WhisperModel(model, device="cpu", compute_type="int8")
         # Whisper usually skips hesitations; the hint makes it write "uh / um" down too,
         # so hesitations found in the audio can be checked against the transcript

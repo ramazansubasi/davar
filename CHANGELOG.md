@@ -17,6 +17,7 @@
 ### Fixed
 
 - Timelines of recordings whose camera writes a start timecode of its own (Sony counts on from where the last recording ended) came into Resolve offline, as Resolve finds clips by that timecode. The timelines now keep it.
+- Transcribe said “Loading the model (downloaded on first use)” on every run, though the model is downloaded only once. The download is now mentioned only while the model is not on the computer yet.
 
 ## 0.3.0 - 2026-11-17
 

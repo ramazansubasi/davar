@@ -2,11 +2,13 @@
 Needs neither ffmpeg nor a video."""
 
 import ast
+import importlib.util
 import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -94,6 +96,22 @@ class TranscriptEditing(unittest.TestCase):
             self.assertEqual((record["language"], record["duration"], len(record["words"])), ("tr", 3.3, 8))
             video.write_bytes(b"a different file altogether")  # a transcript of another video is ignored
             self.assertIsNone(transcript.load(video))
+
+
+class ModelOnDisk(unittest.TestCase):
+    def test_a_folder_holding_a_model_needs_no_download(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertTrue(transcript.model_on_disk(folder))
+
+    @unittest.skipUnless(importlib.util.find_spec("faster_whisper"), "needs faster-whisper")
+    def test_the_download_is_mentioned_only_for_a_model_not_downloaded_yet(self):
+        with mock.patch("faster_whisper.download_model", return_value="cache/small") as found:
+            self.assertTrue(transcript.model_on_disk("small"))
+        found.assert_called_once_with("small", local_files_only=True)  # never goes online to find out
+        with mock.patch("faster_whisper.download_model", side_effect=FileNotFoundError("not downloaded")):
+            self.assertFalse(transcript.model_on_disk("large-v3"))
+        with mock.patch("faster_whisper.download_model", side_effect=ValueError("Invalid model size")):
+            self.assertFalse(transcript.model_on_disk("huge"))
 
 
 class LowerThird(unittest.TestCase):

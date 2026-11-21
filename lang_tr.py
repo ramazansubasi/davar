@@ -87,6 +87,7 @@ TRANSLATIONS = {
     # --- transcript -----------------------------------------------------------
     "transcription needs faster-whisper. Install it with: pip install faster-whisper":
         "yazıya dökme için faster-whisper gerekli. Kurmak için: pip install faster-whisper",
+    "Loading the model": "Model yükleniyor",
     "Loading the model (downloaded on first use)": "Model yükleniyor (ilk seferde internetten indirilir)",
     "no audio was found in the video.": "videoda ses bulunamadı.",
     "no speech was found.": "konuşma bulunamadı.",
