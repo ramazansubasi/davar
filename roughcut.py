@@ -448,6 +448,7 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=
         return f"{frame * fps.denominator}/{fps.numerator}s"
 
     name = video.stem
+    zero = info.get("timecode", 0)  # the video's own start timecode: its source times count from there
     assets, above = {}, {}  # overlay path -> resource id; part index -> lines of the clips above it
     for overlay in sorted(overlays, key=lambda o: o["at"]):
         place = timeline_place(parts, overlay["at"])
@@ -456,7 +457,7 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=
         path = Path(overlay["path"])
         assets.setdefault(path, (f"r{len(assets) + 3}", overlay["frames"]))
         above.setdefault(place[0], []).append(
-            f'              <asset-clip name={quoteattr(path.stem)} lane="1" offset="{t(place[1])}" start="0s" '
+            f'              <asset-clip name={quoteattr(path.stem)} lane="1" offset="{t(zero + place[1])}" start="0s" '
             f'duration="{t(overlay["frames"])}" tcFormat="NDF" ref="{assets[path][0]}"/>')
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -465,7 +466,7 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=
         "  <resources>",
         f'    <format id="r1" name="FFVideoFormatRateUndefined" frameDuration="{t(1)}" '
         f'width="{info["width"]}" height="{info["height"]}" colorSpace="1-1-1 (Rec. 709)"/>',
-        f'    <asset id="r2" name={quoteattr(name)} start="0s" hasVideo="1" format="r1" '
+        f'    <asset id="r2" name={quoteattr(name)} start="{t(zero)}" hasVideo="1" format="r1" '
         f'hasAudio="1" audioSources="1" audioChannels="{info["audio_channels"]}" '
         f'duration="{t(info["frames"])}">',
         f'      <media-rep kind="original-media" src={quoteattr(video.resolve().as_uri())}/>',
@@ -491,10 +492,10 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=
     position = 0
     for index, (start, end) in enumerate(parts):
         clip = (f'            <asset-clip name={quoteattr(name)} offset="{t(position)}" '
-                f'start="{t(start)}" duration="{t(end - start)}" tcFormat="NDF" ref="r2"')
+                f'start="{t(zero + start)}" duration="{t(end - start)}" tcFormat="NDF" ref="r2"')
         inside = list(above.get(index, []))
         if still and index == 0:  # the picture rides on the first part and lasts the whole timeline
-            inside.append(f'              <video name={quoteattr(Path(still).stem)} lane="2" offset="{t(start)}" '
+            inside.append(f'              <video name={quoteattr(Path(still).stem)} lane="2" offset="{t(zero + start)}" '
                           f'ref="rs" start="0s" duration="{t(sum(b - a for a, b in parts))}"/>')
         scale, x, y = framings[index] if framings else WIDE
         if (scale, x, y) != WIDE:  # the picture's own adjustments come before the clips above it
@@ -524,9 +525,10 @@ def read_timeline(path, video, info):
         sources = {asset.get("id"): asset.find("media-rep").get("src") for asset in root.iter("asset")}
         if sources.get("r2") != Path(video).resolve().as_uri() or frames(root.find(".//format").get("frameDuration")) != 1:
             return None
+        zero = next(frames(a.get("start", "0s")) for a in root.iter("asset") if a.get("id") == "r2")
         parts, overlays, framed, still = [], [], [], None
         for clip in root.find(".//spine").findall("asset-clip"):
-            start = frames(clip.get("start"))
+            start = frames(clip.get("start")) - zero
             parts.append((start, start + frames(clip.get("duration"))))
             transform = clip.find("adjust-transform")
             if transform is None:
@@ -536,7 +538,7 @@ def read_timeline(path, video, info):
                 framed.append((float(transform.get("scale", "1").split()[0]), x, y))
             for upper in clip.findall("asset-clip"):
                 overlays.append({"path": Path(url2pathname(unquote(urlparse(sources[upper.get("ref")]).path))),
-                                 "at": frames(upper.get("offset")), "frames": frames(upper.get("duration"))})
+                                 "at": frames(upper.get("offset")) - zero, "frames": frames(upper.get("duration"))})
             for picture in clip.findall("video"):
                 still = Path(url2pathname(unquote(urlparse(sources[picture.get("ref")]).path)))
     except (OSError, ElementTree.ParseError, AttributeError, KeyError, TypeError, ValueError, ZeroDivisionError):

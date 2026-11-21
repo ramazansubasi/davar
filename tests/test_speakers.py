@@ -184,6 +184,30 @@ class Timeline(unittest.TestCase):
             self.assertEqual(back["still"], logo.resolve())
             self.assertEqual(len(back["overlays"]), 1)
 
+    def test_a_cameras_start_timecode_is_kept_so_editors_find_the_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            video, logo, title, timeline = (Path(folder) / name for name in
+                                            ("C0017.MP4", "C0017_logo.png", "lowerthird_a.mov", "cut.fcpxml"))
+            info = {**INFO, "timecode": 1000}
+            overlays = [{"path": title, "at": 281, "frames": 180}]
+            roughcut.write_fcpxml(timeline, video, info, self.PARTS, still=logo, overlays=overlays)
+            text = timeline.read_text(encoding="utf-8")
+            self.assertIn('<asset id="r2" name="C0017" start="1000/30s"', text)
+            self.assertIn('start="1221/30s"', text, "the first part, from the timecode on")
+            self.assertIn('lane="1" offset="1281/30s"', text)
+            self.assertIn('lane="2" offset="1221/30s"', text)
+            back = roughcut.read_timeline(timeline, video, info)
+            self.assertEqual(back["parts"], self.PARTS)
+            self.assertEqual(back["overlays"][0]["at"], 281)
+
+    def test_start_timecodes_are_read_from_the_file(self):
+        from common import start_timecode
+        data = {"streams": [{"codec_type": "data", "tags": {"timecode": "00:03:34:28"}}], "format": {}}
+        self.assertEqual(start_timecode(data, Fraction(50)), (3 * 60 + 34) * 50 + 28)
+        self.assertEqual(start_timecode({"streams": [], "format": {}}, Fraction(25)), 0)
+        self.assertEqual(start_timecode({"streams": [], "format": {"tags": {"timecode": "00:01:00;02"}}},
+                                        Fraction(30000, 1001)), 1800, "drop frame: 00:01:00;02 is frame 1800")
+
     def test_another_videos_timeline_is_not_taken(self):
         with tempfile.TemporaryDirectory() as folder:
             video, other, timeline = (Path(folder) / name for name in ("talk.mp4", "other.mp4", "cut.fcpxml"))

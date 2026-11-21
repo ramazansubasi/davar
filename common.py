@@ -67,7 +67,26 @@ def video_info(path):
         "frames": int(math.floor(duration * fps + 1e-6)),
         "audio_channels": int(audio.get("channels", 2)),
         "audio_rate": int(audio.get("sample_rate", 48000)),
+        "timecode": start_timecode(data, fps),
     }
+
+
+def start_timecode(data, fps):
+    """The frame the file's own timecode starts on, as cameras write it (Sony: 00:03:34:28);
+    0 when there is none. Editors such as Resolve find clips by this timecode."""
+    tags = [s.get("tags", {}) for s in data.get("streams", [])] + [data.get("format", {}).get("tags", {})]
+    text = next((t.get("timecode") for t in tags if t.get("timecode")), None)
+    match = re.fullmatch(r"(\d+):(\d+):(\d+)([:;.,])(\d+)", (text or "").strip())
+    if not match:
+        return 0
+    hours, minutes, seconds, mark, frames = match.groups()
+    nominal = round(fps)
+    total = ((int(hours) * 60 + int(minutes)) * 60 + int(seconds)) * nominal + int(frames)
+    if mark in ";,":  # drop frame: two frame numbers (four at 59.94) skipped each minute but every tenth
+        drop = nominal // 15
+        minutes_in = int(hours) * 60 + int(minutes)
+        total -= drop * (minutes_in - minutes_in // 10)
+    return total
 
 
 def parse_time(text):
