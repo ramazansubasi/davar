@@ -122,3 +122,10 @@ def format_time(seconds):
     if minutes >= 60:
         return f"{int(minutes // 60)}:{int(minutes % 60):02d}:{rest:05.2f}"
     return f"{int(minutes)}:{rest:05.2f}"
+
+
+def two_microphones_note():
+    """The line that goes with every timeline written: how two microphones recorded on the
+    two channels of the video come into Resolve on tracks of their own."""
+    return _("If two microphones were recorded on the video's two channels, tick “Import multi-channel "
+             "audio tracks as linked groups” when importing: each microphone then comes on a track of its own.")

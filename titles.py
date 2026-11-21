@@ -16,7 +16,7 @@ from pathlib import Path
 
 import roughcut
 import speakers
-from common import NO_WINDOW, DavarError, format_time, parse_time, video_info
+from common import NO_WINDOW, DavarError, format_time, parse_time, two_microphones_note, video_info
 from i18n import _
 from roughcut import plain
 
@@ -337,7 +337,7 @@ def report(r):
         lines += [_("Check that each name stands over that person's own words; if two are swapped, "
                     "change the order of the lines."),
                   _("Timeline written: {path}").format(path=r["timeline"]),
-                  _("In Resolve: File → Import → Timeline…")]
+                  _("In Resolve: File → Import → Timeline…"), two_microphones_note()]
     return "\n".join(lines)
 
 

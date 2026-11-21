@@ -23,6 +23,10 @@ TRANSLATIONS = {
     "this needs Pillow. Install it with: pip install pillow":
         "bunun için Pillow gerekli. Kurmak için: pip install pillow",
     "s": "sn",
+    "If two microphones were recorded on the video's two channels, tick “Import multi-channel "
+    "audio tracks as linked groups” when importing: each microphone then comes on a track of its own.":
+        "Videonun iki kanalına iki ayrı mikrofon kaydedildiyse içeri alırken “Import multi-channel audio "
+        "tracks as linked groups” kutusunu işaretle; her mikrofon kendi kanalına gelir.",
 
     # --- rough cut ------------------------------------------------------------
     "uh / um (alone)": "ııı / eee (tek başına)",

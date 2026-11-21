@@ -15,7 +15,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from common import NO_WINDOW, DavarError, video_info
+from common import NO_WINDOW, DavarError, two_microphones_note, video_info
 from i18n import _
 from roughcut import plain
 
@@ -367,5 +367,6 @@ def report(r):
                 headline=p["headline"], timeline=format_time(p["timeline"])))
         for headline in r["missed"]:
             lines.append("  " + _("{headline}: no room left before the end; not placed").format(headline=headline))
-        lines += [_("Timeline written: {path}").format(path=r["timeline"]), _("In Resolve: File → Import → Timeline…")]
+        lines += [_("Timeline written: {path}").format(path=r["timeline"]), _("In Resolve: File → Import → Timeline…"),
+                  two_microphones_note()]
     return "\n".join(lines)

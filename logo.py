@@ -9,7 +9,7 @@ logo can still be moved, resized or switched off. Running Rough Cut or Titles ag
 from pathlib import Path
 
 import roughcut
-from common import DavarError, video_info
+from common import DavarError, two_microphones_note, video_info
 from i18n import _
 
 CORNERS = ("top right", "top left", "bottom right", "bottom left")
@@ -71,4 +71,4 @@ def report(r):
         _("Placed on the Rough Cut timeline, on a track of its own above the titles.") if r["in_cut"]
         else _("No Rough Cut timeline was found for this video, so a timeline of the whole video was written."),
         _("Timeline written: {path}").format(path=r["output"]),
-        _("In Resolve: File → Import → Timeline…")])
+        _("In Resolve: File → Import → Timeline…"), two_microphones_note()])

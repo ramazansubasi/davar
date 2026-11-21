@@ -109,7 +109,8 @@ Run any of them with `--help` for all options.
 
 1. Open a project in Resolve.
 2. **File → Import → Timeline…** and choose the `<video>_cut.fcpxml` written next to the video.
-3. Press **OK** in the dialog. The trimmed timeline opens on the Edit page.
+3. If two microphones were recorded on the video's two audio channels, tick **Import multi-channel audio tracks as linked groups** in the dialog. Each microphone then comes on a track of its own (A1, A2), cut along with the picture and linked to it, so their levels can be set apart.
+4. Press **OK**. The trimmed timeline opens on the Edit page.
 
 ## 01 Audio
 

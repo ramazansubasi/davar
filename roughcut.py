@@ -21,7 +21,7 @@ from xml.sax.saxutils import quoteattr
 import numpy as np
 
 from common import (SAMPLE_RATE, WINDOW, DavarError, format_time, parse_ranges, parse_time, run,
-                    video_info)
+                    two_microphones_note, video_info)
 from i18n import _
 
 
@@ -951,6 +951,7 @@ def report(r, detailed=True):
         if len(r["candidates"]) > 15:
             lines.append("  " + _("... and {n} more candidates").format(n=len(r["candidates"]) - 15))
     lines.append("\n" + _("Timeline written: {path}").format(path=r["output"]))
+    lines.append(two_microphones_note())
     if r.get("subtitles"):
         lines.append(_("Subtitles for this timeline: {path}").format(path=r["subtitles"]))
     if r.get("titles"):

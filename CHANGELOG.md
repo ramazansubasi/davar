@@ -12,6 +12,11 @@
 ### Changed
 
 - On the Titles page the speakers and the topic titles each have their own tick, so either can be made alone.
+- The README and the log after every timeline written say how two microphones recorded on a camera's two channels come into Resolve on tracks of their own: tick **Import multi-channel audio tracks as linked groups** when importing. Each microphone then comes on a track of its own, cut along with the picture and linked to it.
+
+### Fixed
+
+- Timelines of recordings whose camera writes a start timecode of its own (Sony counts on from where the last recording ended) came into Resolve offline, as Resolve finds clips by that timecode. The timelines now keep it.
 
 ## 0.3.0 - 2026-11-17
 

@@ -103,7 +103,8 @@ Bütün seçenekler için herhangi birini `--help` ile çalıştır.
 
 1. Resolve'da bir proje aç.
 2. **File → Import → Timeline…** ile videonun yanında oluşan `<video>_cut.fcpxml` dosyasını seç.
-3. Çıkan pencerede **OK** de. Edit sayfasında kesilmiş zaman çizelgesi açılır.
+3. Videonun iki ses kanalına iki ayrı mikrofon kaydedildiyse, çıkan pencerede **Import multi-channel audio tracks as linked groups** kutusunu işaretle. Her mikrofon kendi kanalına (A1, A2) gelir, görüntüyle birlikte kesilmiş ve ona bağlı olur, seviyeleri ayrı ayarlanır.
+4. **OK** de. Edit sayfasında kesilmiş zaman çizelgesi açılır.
 
 ## 01 Ses
 
