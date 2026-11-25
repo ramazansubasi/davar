@@ -9,7 +9,7 @@ from fractions import Fraction
 
 from i18n import _
 
-VERSION = "0.3.0"  # keep in step with the top entry of CHANGELOG.md
+VERSION = "0.4.0"  # keep in step with the top entry of CHANGELOG.md
 SAMPLE_RATE = 16000  # audio is resampled to this rate for analysis
 WINDOW = 0.01  # audio level is measured in 10 ms slices
 STANDARD_FPS = [
