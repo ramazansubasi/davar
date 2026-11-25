@@ -6,6 +6,7 @@
 
 - **Rough Cut: repeated words and talk about the recording.** From the transcript: a word or a few said twice in a row ("rahat konuşun rahat konuşun", "yayın yayından"), a sentence begun again after a pause, and what is said to the crew ("baştan alıyorum", "bunu keseriz", "kayıttayız"). When the words after "baştan alıyorum" were already said a little earlier, the whole abandoned take is offered. They arrive unticked, as speech also repeats on purpose, and **Show → Repeats and retakes** lists them. On by default when there is a transcript.
 - **Rough Cut: joins to listen to.** A cut made in a silence is never heard; one made at an "uh" glued to a word cuts into sound on purpose. The joins worth a listen are those where a cut goes through a word of the transcript, part of it kept and part of it gone, with sound right at the join: about 20 in a 50-minute talk. Each gets a marker on the timeline ("Davar: listen to this join"), and the log lists them with their times on the timeline. The markers stay when Titles adds names, topic titles or the logo.
+- **Times given by hand move to a pause.** A trim time of Rough Cut (start, end, Also remove) or the start and end of a social clip that falls inside a word moves to the nearest pause, looked for up to 0.9 seconds before it and 0.3 seconds after, so no word is clipped. The log says when times moved.
 - **Social Clips: soft joins.** Where the Rough Cut's cuts join two pieces of a clip, the sound fades out and in over 8 milliseconds, so a cut in the middle of a sound does not click.
 
 ## 0.4.0 - 2026-11-25

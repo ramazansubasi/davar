@@ -160,7 +160,7 @@ Sözlük her okunuşta uygulanır: bir kez öğrettiğin kelime sonraki videolar
 | Dolgu kelimeleri | Senin verdiğin listeden ("yani, şey, işte"), İlk Analiz'in metninde aranır. |
 | Öksürük ve diğer konuşma dışı sesler | İki sessizlik arasında duran kısa sesler. İlk Analiz varsa, karşılığında kelime yazılmamış ses konuşma dışı sayılır. |
 
-**Kırpma.** Programın başladığı ve bittiği zamanı, bir de aradan atılacak aralıkları (tekrar çekim, yayın dışı konuşma) verebilirsin: dışında kalan her şey atılır. Zamanları seçmene yardım etmek için sayfa, metnin ilk ve son satırlarını gösterebilir. Zamanlar dakika:saniye biçiminde (`16:40.5`) ve videodaki zamanlar olarak yazılır, çizelgedeki değil; `16:40:00` gibi üç sayı saat:dakika:saniye demektir, videonun sonundan sonraki bir zaman kabul edilmez.
+**Kırpma.** Programın başladığı ve bittiği zamanı, bir de aradan atılacak aralıkları (tekrar çekim, yayın dışı konuşma) verebilirsin: dışında kalan her şey atılır. Zamanları seçmene yardım etmek için sayfa, metnin ilk ve son satırlarını gösterebilir. Zamanlar dakika:saniye biçiminde (`16:40.5`) ve videodaki zamanlar olarak yazılır, çizelgedeki değil; `16:40:00` gibi üç sayı saat:dakika:saniye demektir, videonun sonundan sonraki bir zaman kabul edilmez. Bir kelimenin içine düşen zaman, kelime kırpılmasın diye en yakın duraklamaya kaydırılır; duraklama zamandan 0,9 saniye öncesine ve 0,3 saniye sonrasına kadar aranır, kaç zamanın kaydığını kayıt penceresi söyler. Yakınında duraklama olmayan zaman olduğu yerde kalır.
 
 **Kesilmiş çizelgenin altyazısı.** Videonun dökümü varsa Kaba Kurgu, kesilmiş çizelgeye uyan bir altyazı da yazar (`<video>_cut.srt`); bitmiş videoyla birlikte yüklenir. Atılan yerlerdeki sözler çıkarılır, kalanlar çizelgedeki zamanlarına kayar. Metin sonradan düzeltilirse bu dosya da yeniden yazılır. İlk Analiz'in yazdığı `.srt` kesilmemiş videoya göredir.
 
@@ -247,7 +247,7 @@ Yatay bir videodan verdiğin zaman aralığını 1080x1920 dikey video olarak ke
 
 Altyazı için İlk Analiz'in metni kullanılır; analiz yoksa seçilen aralık o an yazıya dökülür. Altyazı videoya gömülür ve sonradan düzeltilemez; önce metni düzelt.
 
-**Kaba Kurgu'yu uygulama.** Videonun Kaba Kurgu çizelgesi varsa **Kaba Kurgu kesimlerini uygula** (varsayılan olarak açık), Kaba Kurgu'nun kestiği sessizlik, duraksama ve kırpılmış kısımları klipten de çıkarır; altyazı da buna uyar. Verdiğin zamanlar videodaki zamanlar olarak kalır; İçerik Analizi her sosyal klip adayı için bu zamanları yazar. Bir söyleşinin bir dakikalık aralığında 22 kesim klibi 11 saniye kısalttı. Her birleşimde ses 8 milisaniyede kısılıp açılır; böylece bir sesin ortasındaki kesim tıkırdamaz.
+**Kaba Kurgu'yu uygulama.** Videonun Kaba Kurgu çizelgesi varsa **Kaba Kurgu kesimlerini uygula** (varsayılan olarak açık), Kaba Kurgu'nun kestiği sessizlik, duraksama ve kırpılmış kısımları klipten de çıkarır; altyazı da buna uyar. Verdiğin zamanlar videodaki zamanlar olarak kalır; İçerik Analizi her sosyal klip adayı için bu zamanları yazar. Bir söyleşinin bir dakikalık aralığında 22 kesim klibi 11 saniye kısalttı. Her birleşimde ses 8 milisaniyede kısılıp açılır; böylece bir sesin ortasındaki kesim tıkırdamaz. Verdiğin başlangıç ve bitiş de Kaba Kurgu'daki kırpma zamanları gibi en yakın duraklamaya kaydırılır; kayıt penceresi kullanılan aralığı gösterir.
 
 ## Sınırlar
 

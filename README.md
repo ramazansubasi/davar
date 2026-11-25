@@ -166,7 +166,7 @@ The dictionary is applied every time a transcript is read: a word taught once is
 | Filler words | From your list ("you know, like"), searched in the transcript. |
 | Coughs and other non-speech sounds | Short bursts standing between silences. With a transcript, a burst no word was written for is non-speech. |
 
-**Trimming.** You can also give the time the programme starts and ends, and ranges to drop from the middle (a repeated take, an off-air exchange): everything outside is removed. The page can print the first and last lines of the transcript to help you pick the times. Times are written as minute:second (`16:40.5`) and are times in the video, not on the timeline; three numbers such as `16:40:00` mean hours:minutes:seconds, and a time past the end of the video is refused.
+**Trimming.** You can also give the time the programme starts and ends, and ranges to drop from the middle (a repeated take, an off-air exchange): everything outside is removed. The page can print the first and last lines of the transcript to help you pick the times. Times are written as minute:second (`16:40.5`) and are times in the video, not on the timeline; three numbers such as `16:40:00` mean hours:minutes:seconds, and a time past the end of the video is refused. A time that falls inside a word moves to the nearest pause, looked for up to 0.9 seconds before it and 0.3 seconds after, so no word is clipped; the log says how many moved. A time with no pause near stays where it is.
 
 **Subtitles for the cut.** When the video has a transcript, Rough Cut also writes subtitles that follow the cut timeline (`<video>_cut.srt`), to upload with the finished video: words that were cut away are left out and the others move to their time on the timeline. Correcting the text later rewrites them too. The `.srt` written by Transcribe follows the uncut video.
 
@@ -253,7 +253,7 @@ Cuts the time range you give from a landscape video into a 1080x1920 vertical vi
 
 Subtitles use the transcript when there is one; otherwise the chosen range is transcribed on the spot. They are burned in and cannot be corrected afterwards, so fix the transcript first.
 
-**Applying the Rough Cut.** When the video has a Rough Cut timeline, **Apply the Rough Cut's cuts** (on by default) leaves the silences, hesitations and trimmed parts it cut out of the clip as well, and the subtitles follow. The times you give stay times in the video, as Content Analysis lists them for each social clip candidate. On a one-minute range of a talk, 22 cuts made the clip 11 seconds shorter. At each join the sound fades out and in over 8 milliseconds, so a cut in the middle of a sound does not click.
+**Applying the Rough Cut.** When the video has a Rough Cut timeline, **Apply the Rough Cut's cuts** (on by default) leaves the silences, hesitations and trimmed parts it cut out of the clip as well, and the subtitles follow. The times you give stay times in the video, as Content Analysis lists them for each social clip candidate. On a one-minute range of a talk, 22 cuts made the clip 11 seconds shorter. At each join the sound fades out and in over 8 milliseconds, so a cut in the middle of a sound does not click. The start and the end you give move to the nearest pause in the same way as the trims of Rough Cut, and the log shows the range used.
 
 ## Limits
 

@@ -465,6 +465,9 @@ TRANSLATIONS = {
         "Dinlenecek birleşimler: {n}; kesimin bir kelimenin içinden geçtiği ve birleşimde ses olan yerler.",
     "{timeline} on the timeline ({video} in the video)  «{word}»": "çizelgede {timeline} (videoda {video})  «{word}»",
     "Mark the joins to listen to": "Dinlenecek birleşimleri işaretle",
+    "({n} of the times moved to the nearest pause)": "(zamanlardan {n} tanesi en yakın duraklamaya kaydırıldı)",
+    "Looking for the pauses at the start and the end": "Başta ve sondaki duraklamalar aranıyor",
+    "(moved to the nearest pauses)": "(en yakın duraklamalara kaydırıldı)",
     "A marker on the timeline wherever a cut goes through a word of the transcript "
     "with sound at the join, where a word may be clipped. The log lists them too.":
         "Kesimin dökümdeki bir kelimenin içinden geçtiği ve birleşimde ses olan her yere, yani bir kelimenin "

@@ -166,6 +166,22 @@ def kept_in_range(parts, fps, start, end):
     return pieces
 
 
+def snap_range(video, start, end, length):
+    """Move the start and the end of a range to the nearest pause, so that no word is clipped:
+    (start, end, whether either moved). The range is left as it is when its audio cannot be read."""
+    first, last = max(start - 1.0, 0.0), min(end + 1.0, length)
+    try:
+        _samples, db = roughcut.audio_levels(video, first, last - first)
+    except DavarError:
+        return start, end, False
+    threshold = roughcut.auto_threshold(db)[0]
+    new_start = first + roughcut.snap_to_pause(db, start - first, threshold)
+    new_end = first + roughcut.snap_to_pause(db, end - first, threshold)
+    if new_end - new_start < 1:
+        return start, end, False
+    return new_start, new_end, abs(new_start - start) > 0.02 or abs(new_end - end) > 0.02
+
+
 def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal=0.5,
               subtitles=False, cover=False, language="tr", words=None, parts=None, progress=None):
     """Cut the range as a vertical video; returns information about the output file.
@@ -175,6 +191,7 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
     not transcribed again for the subtitles.
     `parts`: the parts of the Rough Cut timeline (frames of the video); when given, only
     what they keep of the range goes into the clip.
+    The start and the end move to the nearest pause (see roughcut.snap_to_pause).
     """
     def step(percent, text):
         if progress:
@@ -195,6 +212,9 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
     duration = end - start
     if duration < 1:
         raise DavarError(_("the end time must be at least 1 second after the start."))
+    step(3, _("Looking for the pauses at the start and the end"))
+    start, end, moved = snap_range(video, start, end, info["duration"])
+    duration = end - start
     fps = float(info["fps"])
     pieces = kept_in_range(parts, fps, start, end) if parts else None
     if pieces is not None:
@@ -306,7 +326,7 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
             raise DavarError(_("ffmpeg could not write the video:") + "\n" + log[-600:])
 
     step(100, _("Finished"))
-    return {"output": output, "duration": total, "start": start, "end": end,
+    return {"output": output, "duration": total, "start": start, "end": end, "moved": moved,
             "subtitle_lines": subtitle_lines, "subtitles": subtitles, "cover": cover,
             "cuts": len(pieces) - 1 + (pieces[0][0] > 0) + (pieces[-1][1] < round(span * fps)) if pieces else 0,
             "shorter": span - duration}
@@ -314,7 +334,8 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
 
 def report(r):
     lines = [
-        _("Range    : {start} - {end}").format(start=format_time(r["start"]), end=format_time(r["end"])),
+        _("Range    : {start} - {end}").format(start=format_time(r["start"]), end=format_time(r["end"]))
+        + ("  " + _("(moved to the nearest pauses)") if r.get("moved") else ""),
         _("Video    : {width}x{height}, {seconds:.1f} s").format(width=WIDTH, height=HEIGHT, seconds=r["duration"])
         + ("  " + _("(including the intro cover)") if r["cover"] else ""),
     ]

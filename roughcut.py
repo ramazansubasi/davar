@@ -25,9 +25,12 @@ from common import (SAMPLE_RATE, WINDOW, DavarError, format_time, parse_ranges, 
 from i18n import _
 
 
-def audio_levels(path):
-    """Decode the audio to mono and return (samples, level in dB for every 10 ms)."""
-    raw = run(["ffmpeg", "-v", "error", "-i", str(path), "-vn",
+def audio_levels(path, start=None, duration=None):
+    """Decode the audio to mono and return (samples, level in dB for every 10 ms).
+    With `start` and `duration` (seconds) only that range is read."""
+    where = (["-ss", f"{start:.3f}"] if start is not None else []) + (
+        ["-t", f"{duration:.3f}"] if duration is not None else [])
+    raw = run(["ffmpeg", "-v", "error", *where, "-i", str(path), "-vn",
                "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "s16le", "-"])
     samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
     step = int(SAMPLE_RATE * WINDOW)
@@ -233,6 +236,46 @@ def auto_threshold(db):
     floor = max(float(np.percentile(db, 10)), -80.0)
     speech = float(np.percentile(db, 95))
     return floor + 0.35 * (speech - floor), floor, speech
+
+
+# A time given by hand (a trim, the range of a social clip) seldom falls exactly in a pause;
+# cut there and a word is clipped. It moves to the nearest pause, searched mostly before it.
+SNAP_BEFORE = 0.9  # seconds searched before a time given by hand
+SNAP_AFTER = 0.3  # and after it
+SNAP_PAUSE = 0.05  # seconds; a shorter dip between two sounds is not a pause
+SNAP_INTO = 0.1  # seconds moved into the pause, away from the sound, when it is long enough
+
+
+def snap_to_pause(db, moment, threshold):
+    """The moment in the pause nearest to `moment` (seconds), searched from SNAP_BEFORE before
+    it to SNAP_AFTER after it; `moment` itself when it is in a pause or no pause is near."""
+    here = int(round(moment / WINDOW))
+    if not 0 <= here < len(db):
+        return moment
+    low, high = max(here - int(round(SNAP_BEFORE / WINDOW)), 0), min(here + int(round(SNAP_AFTER / WINDOW)) + 1, len(db))
+    quiet = db[low:high] < threshold
+    changes = np.flatnonzero(np.diff(quiet.astype(np.int8)))
+    bounds = np.concatenate(([0], changes + 1, [len(quiet)]))
+    reach = int(round(2 * SNAP_INTO / WINDOW))  # a pause cut by the edge of the search is followed a little
+
+    def whole(first, last):
+        limit = first - reach
+        while first > max(limit, 0) and db[first - 1] < threshold:
+            first -= 1
+        limit = last + reach
+        while last < min(limit, len(db)) and db[last] < threshold:
+            last += 1
+        return first, last
+    pauses = [whole(low + a, low + b) for a, b in zip(bounds[:-1], bounds[1:]) if quiet[a]]
+    pauses = [(a, b) for a, b in pauses if (b - a) * WINDOW >= SNAP_PAUSE]
+    if not pauses:
+        return moment
+    first, last = min(pauses, key=lambda p: (0 if p[0] <= here < p[1] else min(abs(p[0] - here), abs(p[1] - 1 - here)),
+                                             p[0] > here))
+    if first <= here < last:
+        return moment
+    into = min(int(round(SNAP_INTO / WINDOW)), (last - first) // 2)
+    return (last - 1 - into if last <= here else first + into) * WINDOW
 
 
 def silent_intervals(db, threshold, min_silence, removed=None):
@@ -839,6 +882,12 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
     samples, db = audio_levels(video)
     auto, floor, speech = auto_threshold(db)
     used = threshold if threshold is not None else auto
+    # the times given by hand move to the nearest pause, so no word is clipped
+    given = [keep_from, keep_to] + [moment for pair in remove for moment in pair]
+    keep_from, keep_to = (None if t is None else snap_to_pause(db, t, used) for t in (keep_from, keep_to))
+    remove = [(snap_to_pause(db, a, used), snap_to_pause(db, b, used)) for a, b in remove]
+    moved = sum(abs(a - b) > 0.02 for a, b in zip(given, [keep_from, keep_to] + [t for pair in remove for t in pair])
+                if a is not None)
 
     found, short, bursts = [], [], []
     if hesitations or noises:
@@ -873,7 +922,7 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
         "min_silence": min_silence if silence else float("inf"),
         "pad_before": pad_before, "pad_after": pad_after, "candidates": candidates,
         "has_transcript": bool(words), "words": words, "language": language,
-        "keep_from": keep_from, "keep_to": keep_to, "remove": list(remove),
+        "keep_from": keep_from, "keep_to": keep_to, "remove": list(remove), "moved": moved,
     }
 
 
@@ -962,7 +1011,7 @@ def apply(state, output=None, review=False, close_up=None, places=(), speakers=2
         "output": output, "review": review_file, "subtitles": subtitles, "marked": bool(markers),
         "checks": [(timeline_place(parts, frame)[2] / fps, frame / fps, word) for frame, word in checks],
         "keep_from": state.get("keep_from"), "keep_to": state.get("keep_to"),
-        "remove": state.get("remove", []),
+        "remove": state.get("remove", []), "moved": state.get("moved", 0),
     }
 
 
@@ -994,7 +1043,9 @@ def report(r, detailed=True):
         trimmed.append(_("end from {time}").format(time=format_time(r["keep_to"])))
     trimmed += [f"{format_time(a)}-{format_time(b)}" for a, b in r.get("remove", [])]
     if trimmed:
-        lines.append(_("Trimmed      : {parts}").format(parts=", ".join(trimmed)))
+        lines.append(_("Trimmed      : {parts}").format(parts=", ".join(trimmed))
+                     + ("  " + _("({n} of the times moved to the nearest pause)").format(n=r["moved"])
+                        if r.get("moved") else ""))
     if r["speech"] - r["floor"] < 15:
         lines.append(_("WARNING: the background noise is close to the speech level; cuts may be wrong."))
     if info["variable_rate"]:

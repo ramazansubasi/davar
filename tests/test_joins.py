@@ -75,5 +75,34 @@ class Markers(unittest.TestCase):
             self.assertEqual(roughcut.read_timeline(timeline, video, INFO)["markers"], [(70, "x")])
 
 
+class Pauses(unittest.TestCase):
+    # speech from 1.0 to 2.0 s and from 2.5 to 4.0 s, quiet in between
+    DB = levels([(1.0, 2.0), (2.5, 4.0)])
+
+    def snap(self, moment):
+        return round(roughcut.snap_to_pause(self.DB, moment, -40.0), 2)
+
+    def test_a_time_in_a_pause_stays(self):
+        self.assertEqual(self.snap(2.2), 2.2)
+
+    def test_a_time_in_a_word_moves_into_the_pause_before(self):
+        self.assertEqual(self.snap(2.8), 2.39, "0.1 s into the pause, away from the next word")
+
+    def test_a_time_at_the_end_of_a_word_moves_into_the_pause_after(self):
+        self.assertEqual(self.snap(1.9), 2.1)
+
+    def test_a_time_with_no_pause_near_stays(self):
+        self.assertEqual(self.snap(3.5), 3.5)
+
+    def test_a_short_dip_is_not_a_pause(self):
+        db = levels([(1.0, 1.98), (2.0, 3.0)])
+        self.assertEqual(round(roughcut.snap_to_pause(db, 2.5, -40.0), 2), 2.5)
+
+    def test_the_search_reaches_further_back_than_ahead(self):
+        db = levels([(1.0, 2.0), (2.5, 4.0)])
+        self.assertEqual(round(roughcut.snap_to_pause(db, 3.35, -40.0), 2), 2.39, "0.85 s back")
+        self.assertEqual(round(roughcut.snap_to_pause(db, 1.75, -40.0), 2), 2.1, "0.25 s ahead is nearer")
+        self.assertEqual(round(roughcut.snap_to_pause(db, 1.6, -40.0), 2), 0.89, "0.4 s ahead is too far")
+
 if __name__ == "__main__":
     unittest.main()
