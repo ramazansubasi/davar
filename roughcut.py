@@ -284,6 +284,36 @@ def compute_cuts(intervals, info, pad_before, pad_after, audio_end=None):
     return cuts
 
 
+# --- checking the joins -----------------------------------------------------------
+# A cut made in a silence is never heard. One made at an "uh" glued to a word cuts into
+# sound, but on purpose. The joins worth a listen are those where a word of the transcript
+# is cut through, part of it kept and part of it gone, with sound right at the join.
+CHECK_WORD = 0.15  # seconds of a word on each side of a cut that make it cut through
+CHECK_EDGE = 0.04  # seconds of sound looked at on each side of a join
+CHECK_LOUD = 15.0  # dB below the speech level: sound louder than this at a join is heard
+
+
+def joins_to_check(cuts, words, db, speech, fps, total, language="tr"):
+    """Joins of the timeline that may clip a word: (frame of the video the timeline goes
+    on from, the word cut through), one for each such cut."""
+    edge = int(round(CHECK_EDGE / WINDOW))
+    found = []
+    for first, last in cuts:
+        if first == 0 or last >= total:
+            continue  # the start and the end of the programme are not joins
+        cut_start, cut_end = first / fps, last / fps
+        before = db[max(int(cut_start / WINDOW) - edge, 0):int(cut_start / WINDOW)]
+        after = db[int(cut_end / WINDOW):int(cut_end / WINDOW) + edge]
+        if not len(before) or not len(after) or max(before.max(), after.max()) < speech - CHECK_LOUD:
+            continue
+        for text, start, end in (w[:3] for w in words or ()):
+            gone = min(end, cut_end) - max(start, cut_start)
+            if gone > CHECK_WORD and end - start - gone > CHECK_WORD and not is_filler_sound(text, language):
+                found.append((last, text))
+                break
+    return found
+
+
 def remaining_parts(cuts, total):
     parts, position = [], 0
     for start, end in cuts:
@@ -432,7 +462,7 @@ def cut_subtitles_path(timeline):
     return Path(timeline).with_suffix(".srt")
 
 
-def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=None, still=None):
+def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=None, still=None, markers=()):
     """Write the parts of the video one after the other as a timeline.
 
     `overlays` are clips for the track above, such as name titles: dicts with "path",
@@ -440,7 +470,8 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=
     have the size and frame rate of the video. `framings` gives each part a (scale, x, y)
     as the framings function makes them; the whole picture when left out. `still` is a
     picture of the size of the video, such as a logo in a corner, shown on a track of its
-    own above everything from the start of the timeline to its end.
+    own above everything from the start of the timeline to its end. `markers` are (frame of
+    the video, note) pairs, shown in Resolve as markers on the clip holding that frame.
     """
     fps = info["fps"]
 
@@ -459,6 +490,12 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=
         above.setdefault(place[0], []).append(
             f'              <asset-clip name={quoteattr(path.stem)} lane="1" offset="{t(zero + place[1])}" start="0s" '
             f'duration="{t(overlay["frames"])}" tcFormat="NDF" ref="{assets[path][0]}"/>')
+    notes = {}  # part index -> marker lines
+    for frame, note in sorted(markers):
+        place = timeline_place(parts, frame)
+        if place is not None:
+            notes.setdefault(place[0], []).append(
+                f'              <marker start="{t(zero + place[1])}" duration="{t(1)}" value={quoteattr(note)}/>')
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         "<!DOCTYPE fcpxml>",
@@ -501,6 +538,7 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=
         if (scale, x, y) != WIDE:  # the picture's own adjustments come before the clips above it
             moved = f'position="{x:g} {y:g}" ' if (x, y) != (0, 0) else ""
             inside.insert(0, f'              <adjust-transform {moved}scale="{scale:g} {scale:g}"/>')
+        inside += notes.get(index, [])  # markers come after the clips above
         lines += [clip + ">", *inside, "            </asset-clip>"] if inside else [clip + "/>"]
         position += end - start
     lines += ["          </spine>", "        </sequence>", "      </project>",
@@ -510,7 +548,7 @@ def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=
 
 def read_timeline(path, video, info):
     """Read back a timeline written by write_fcpxml for this video: a dict with its "parts",
-    "overlays", "framings" and "still" (as write_fcpxml takes them). None if the file is not there, is not
+    "overlays", "framings", "still" and "markers" (as write_fcpxml takes them). None if the file is not there, is not
     such a timeline, or is of another video or frame rate."""
     fps = info["fps"]
 
@@ -526,7 +564,7 @@ def read_timeline(path, video, info):
         if sources.get("r2") != Path(video).resolve().as_uri() or frames(root.find(".//format").get("frameDuration")) != 1:
             return None
         zero = next(frames(a.get("start", "0s")) for a in root.iter("asset") if a.get("id") == "r2")
-        parts, overlays, framed, still = [], [], [], None
+        parts, overlays, framed, still, markers = [], [], [], None, []
         for clip in root.find(".//spine").findall("asset-clip"):
             start = frames(clip.get("start")) - zero
             parts.append((start, start + frames(clip.get("duration"))))
@@ -541,9 +579,12 @@ def read_timeline(path, video, info):
                                  "at": frames(upper.get("offset")) - zero, "frames": frames(upper.get("duration"))})
             for picture in clip.findall("video"):
                 still = Path(url2pathname(unquote(urlparse(sources[picture.get("ref")]).path)))
+            for marker in clip.findall("marker"):
+                markers.append((frames(marker.get("start")) - zero, marker.get("value", "")))
     except (OSError, ElementTree.ParseError, AttributeError, KeyError, TypeError, ValueError, ZeroDivisionError):
         return None
-    return {"parts": parts, "overlays": overlays, "framings": framed, "still": still} if parts else None
+    return ({"parts": parts, "overlays": overlays, "framings": framed, "still": still, "markers": markers}
+            if parts else None)
 
 
 # --- candidates ---------------------------------------------------------------
@@ -855,13 +896,15 @@ def cut_plan(state):
     return cuts, remaining_parts(cuts, state["info"]["frames"])
 
 
-def apply(state, output=None, review=False, close_up=None, places=(), speakers=2, every=CHANGE_EVERY):
+def apply(state, output=None, review=False, close_up=None, places=(), speakers=2, every=CHANGE_EVERY,
+          mark_joins=True):
     """Write the timeline file(s) and return a summary of the result.
 
     With `close_up` (a scale such as 1.25) the picture moves closer to whoever gives a long
     answer (see framings). `places` says where each speaker sits, in the order they first
     speak; without it `speakers` people are assumed and the closer framing stays in the middle.
     Who speaks when is taken from state["turns"] or else worked out here from the transcript.
+    With `mark_joins` the joins that may clip a word (see joins_to_check) get a marker.
     """
     video, info, fps = state["video"], state["info"], state["fps"]
     cuts, parts = cut_plan(state)
@@ -882,7 +925,11 @@ def apply(state, output=None, review=False, close_up=None, places=(), speakers=2
             turns = voices.find_turns(state["samples"], state["words"], len(places) or speakers,
                                       state.get("language", "tr"))
         framed = framings(parts, fps, turns, places, close_up, info["width"], info["height"], every)
-    write_fcpxml(output, video, info, parts, overlays=titles, framings=framed, still=still)
+    checks = joins_to_check(cuts, state.get("words"), state["db"], state["speech"], fps, info["frames"],
+                            state.get("language", "tr"))
+    markers = [(frame, _("Davar: listen to this join ({word})").format(word=word))
+               for frame, word in checks] if mark_joins else ()
+    write_fcpxml(output, video, info, parts, overlays=titles, framings=framed, still=still, markers=markers)
     subtitles = None
     if state.get("words"):  # subtitles always follow the cut, never the uncut video
         subtitles = cut_subtitles_path(output)
@@ -912,7 +959,8 @@ def apply(state, output=None, review=False, close_up=None, places=(), speakers=2
         "changes": sum(a != b for a, b in zip(framed, framed[1:])) if framed else 0,
         "close_share": (sum(end - start for (start, end), f in zip(parts, framed) if f != WIDE)
                         / sum(end - start for start, end in parts)) if framed else 0.0,
-        "output": output, "review": review_file, "subtitles": subtitles,
+        "output": output, "review": review_file, "subtitles": subtitles, "marked": bool(markers),
+        "checks": [(timeline_place(parts, frame)[2] / fps, frame / fps, word) for frame, word in checks],
         "keep_from": state.get("keep_from"), "keep_to": state.get("keep_to"),
         "remove": state.get("remove", []),
     }
@@ -975,6 +1023,16 @@ def report(r, detailed=True):
                        "closer framings are lost."))
     if r["review"]:
         lines.append(_("Review timeline written: {path}").format(path=r["review"]))
+    if r.get("checks"):
+        lines.append("\n" + (_("Joins to listen to: {n}, where a cut goes through a word with sound at the join. "
+                               "Each has a marker on the timeline.") if r.get("marked") else
+                             _("Joins to listen to: {n}, where a cut goes through a word with sound at the join."))
+                     .format(n=len(r["checks"])))
+        for moment, source, word in r["checks"][:40]:
+            lines.append("  " + _("{timeline} on the timeline ({video} in the video)  «{word}»").format(
+                timeline=format_time(moment), video=format_time(source), word=word))
+        if len(r["checks"]) > 40:
+            lines.append("  " + _("... and {n} more").format(n=len(r["checks"]) - 40))
     return "\n".join(lines)
 
 

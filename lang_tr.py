@@ -72,6 +72,7 @@ TRANSLATIONS = {
         "Adaylar (orijinal videodaki zaman; [x] kesildi):",
     "confidence {level}": "güven {level}",
     "... and {n} more candidates": "... ve {n} aday daha",
+    "... and {n} more": "... ve {n} tane daha",
     "Timeline written: {path}": "Zaman çizelgesi yazıldı: {path}",
     "Review timeline written: {path}": "Kontrol çizelgesi yazıldı: {path}",
     "the end of the programme must come after its start.": "program bitişi başlangıcından sonra olmalı.",
@@ -455,6 +456,19 @@ TRANSLATIONS = {
         "ve “çekimle ilgili konuşma? (dinle)” diye gelir; Göster → Tekrarlar ve çekim konuşmaları onları "
         "listeler. Konuşmada bilerek yapılan tekrarlar da olur; ayırt etmek size kalır.",
     "Repeats and retakes": "Tekrarlar ve çekim konuşmaları",
+    "Davar: listen to this join ({word})": "Davar: bu birleşimi dinle ({word})",
+    "Joins to listen to: {n}, where a cut goes through a word with sound at the join. "
+    "Each has a marker on the timeline.":
+        "Dinlenecek birleşimler: {n}; kesimin bir kelimenin içinden geçtiği ve birleşimde ses olan yerler. "
+        "Her birinde çizelgede bir işaret var.",
+    "Joins to listen to: {n}, where a cut goes through a word with sound at the join.":
+        "Dinlenecek birleşimler: {n}; kesimin bir kelimenin içinden geçtiği ve birleşimde ses olan yerler.",
+    "{timeline} on the timeline ({video} in the video)  «{word}»": "çizelgede {timeline} (videoda {video})  «{word}»",
+    "Mark the joins to listen to": "Dinlenecek birleşimleri işaretle",
+    "A marker on the timeline wherever a cut goes through a word of the transcript "
+    "with sound at the join, where a word may be clipped. The log lists them too.":
+        "Kesimin dökümdeki bir kelimenin içinden geçtiği ve birleşimde ses olan her yere, yani bir kelimenin "
+        "kırpılmış olabileceği yerlere çizelgede bir işaret konur. Kayıt penceresi de bunları listeler.",
     "Also the throat clearing that runs into speech, which the rule above misses. A sound "
     "model picks about 25 likely places an hour; they arrive unticked as “throat clearing? "
     "(listen)”, and Show → Non-speech sounds lists them. The model (16 MB) is downloaded "

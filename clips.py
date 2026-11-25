@@ -26,6 +26,7 @@ from roughcut import is_filler_sound
 WIDTH, HEIGHT = 1080, 1920
 FRAME_Y, FRAME_HEIGHT = 340, 1440  # vertical place and height of the speaker's frame
 COVER_SECONDS = 2.5
+JOIN_FADE = 0.008  # seconds of fade at each join of the pieces, so a cut in a sound does not click
 ACCENT = (227, 6, 19)  # colour of the kicker
 COVER_BACKGROUND = (92, 6, 16)
 COVER_KICKER = (255, 120, 128)
@@ -228,8 +229,12 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
             chain += f"[0:v]split={n}" + "".join(f"[vs{i}]" for i in range(n)) + ";"
             chain += f"[0:a]asplit={n}" + "".join(f"[as{i}]" for i in range(n)) + ";"
             for i, (a, b) in enumerate(pieces):
+                # a very short fade at both ends of each piece, so the joins do not click
+                length = (b - a) / fps
+                fade = (f",afade=t=in:d={JOIN_FADE},afade=t=out:st={length - JOIN_FADE:.6f}:d={JOIN_FADE}"
+                        if n > 1 and length > 4 * JOIN_FADE else "")
                 chain += (f"[vs{i}]trim=start_frame={a}:end_frame={b},setpts=PTS-STARTPTS[vp{i}];"
-                          f"[as{i}]atrim=start={a / fps:.6f}:end={b / fps:.6f},asetpts=PTS-STARTPTS[ap{i}];")
+                          f"[as{i}]atrim=start={a / fps:.6f}:end={b / fps:.6f},asetpts=PTS-STARTPTS{fade}[ap{i}];")
             chain += "".join(f"[vp{i}][ap{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=1[cv][ca];"
             picture, sound = "[cv]", "[ca]"
         chain += (

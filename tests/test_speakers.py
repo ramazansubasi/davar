@@ -154,7 +154,7 @@ class Timeline(unittest.TestCase):
             self.assertNotIn("lane", timeline.read_text(encoding="utf-8"))
             wide = roughcut.WIDE
             self.assertEqual(roughcut.read_timeline(timeline, video, INFO),
-                             {"parts": self.PARTS, "overlays": [], "framings": [wide, wide, wide], "still": None})
+                             {"parts": self.PARTS, "overlays": [], "framings": [wide, wide, wide], "still": None, "markers": []})
 
     def test_closer_framings_are_written_before_the_titles_and_read_back(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -505,7 +505,7 @@ class RoughCutPage(Page):
                      "a trimmed timeline for DaVinci Resolve. The original video is not touched. "
                      "In Resolve: File → Import → Timeline…")
     key = "rough_cut"
-    general = ("silence", "hesitations", "noises", "throat", "retakes", "review_file", "ask", "min_silence", "pad_before",
+    general = ("silence", "hesitations", "noises", "throat", "retakes", "review_file", "mark_joins", "ask", "min_silence", "pad_before",
                "pad_after", "min_hesitation", "fillers", "punch", "closeup", "every")
     per_video = ("keep_from", "keep_to", "remove")
 
@@ -516,6 +516,7 @@ class RoughCutPage(Page):
         self.throat = tk.BooleanVar(value=False)
         self.retakes = tk.BooleanVar(value=True)
         self.review_file = tk.BooleanVar(value=False)
+        self.mark_joins = tk.BooleanVar(value=True)
         self.ask = tk.BooleanVar(value=True)
         self.min_silence = tk.DoubleVar(value=0.5)
         self.pad_before = tk.DoubleVar(value=0.10)
@@ -615,6 +616,11 @@ class RoughCutPage(Page):
         ttk.Label(g, text=_("A second timeline showing the cut candidates with one second before and "
                             "after each, for checking inside Resolve."),
                   style="CardMuted.TLabel", wraplength=680, justify="left").pack(anchor="w", padx=(26, 0))
+        ttk.Checkbutton(g, text=_("Mark the joins to listen to"), variable=self.mark_joins,
+                        style="Card.TCheckbutton").pack(anchor="w", pady=(8, 0))
+        ttk.Label(g, text=_("A marker on the timeline wherever a cut goes through a word of the transcript "
+                            "with sound at the join, where a word may be clipped. The log lists them too."),
+                  style="CardMuted.TLabel", wraplength=680, justify="left").pack(anchor="w", padx=(26, 0))
         for variable in (self.fillers, self.keep_from, self.keep_to, self.remove):
             variable.trace_add("write", lambda *_args: self.refresh_state())
 
@@ -681,7 +687,7 @@ class RoughCutPage(Page):
         seated = self._seated()
         return dict(
             output=self.app.output_folder() / (video.stem + "_cut.fcpxml"),
-            review=self.review_file.get(), ask=self.ask.get(),
+            review=self.review_file.get(), ask=self.ask.get(), mark_joins=self.mark_joins.get(),
             close_up=float(self.closeup.get()) / 100 if self.punch.get() else None,
             places=[place for _name, place in seated], speakers=len(seated) or 2,
             every=float(self.every.get()),
@@ -712,7 +718,8 @@ class RoughCutPage(Page):
                 return None
         return roughcut.apply(state, output=settings["output"], review=settings["review"],
                               close_up=settings["close_up"], places=settings["places"],
-                              speakers=settings["speakers"], every=settings["every"])
+                              speakers=settings["speakers"], every=settings["every"],
+                              mark_joins=settings["mark_joins"])
 
     def result_text(self, result):
         return roughcut.report(result, detailed=False)

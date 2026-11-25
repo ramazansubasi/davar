@@ -54,11 +54,11 @@ def place(video, logo, corner="top right", size=SIZE, folder=None):
     if known is None:
         output, label, in_cut = target / (video.stem + "_titles.fcpxml"), "titles", False
         known = roughcut.read_timeline(output, video, info) or {
-            "parts": [(0, info["frames"])], "overlays": [], "framings": None, "still": None}
+            "parts": [(0, info["frames"])], "overlays": [], "framings": None, "still": None, "markers": []}
     still = target / (video.stem + "_logo.png")
     box = picture(logo, corner, size, info["width"], info["height"], still)
     roughcut.write_fcpxml(output, video, info, known["parts"], label=label, overlays=known["overlays"],
-                          framings=known["framings"], still=still)
+                          framings=known["framings"], still=still, markers=known["markers"])
     return {"output": output, "picture": still, "corner": corner, "box": box, "in_cut": in_cut}
 
 

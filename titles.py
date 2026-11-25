@@ -289,7 +289,7 @@ def place_on_timeline(video, people, items, folder=None, words=None, language="t
                        "said": " ".join(said)})
     roughcut.write_fcpxml(output, video, info, parts, label=label, overlays=overlays,  # the framings and
                           framings=known["framings"] if known else None,     # the corner logo stay
-                          still=known["still"] if known else None)
+                          still=known["still"] if known else None, markers=known["markers"] if known else ())
     return {"timeline": output, "in_cut": bool(known), "placed": placed, "missed": missed}
 
 
