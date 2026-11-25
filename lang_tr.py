@@ -465,6 +465,22 @@ TRANSLATIONS = {
         "Dinlenecek birleşimler: {n}; kesimin bir kelimenin içinden geçtiği ve birleşimde ses olan yerler.",
     "{timeline} on the timeline ({video} in the video)  «{word}»": "çizelgede {timeline} (videoda {video})  «{word}»",
     "Mark the joins to listen to": "Dinlenecek birleşimleri işaretle",
+    "Take the rhythm of finished episodes…": "Bitmiş bölümlerin ritmini al…",
+    "measures their pauses and sets the three boxes above": "duraklamalarını ölçer, yukarıdaki üç kutuyu ayarlar",
+    "Choose finished episodes": "Bitmiş bölümleri seç",
+    "Measuring the rhythm of {n} episodes…": "{n} bölümün ritmi ölçülüyor…",
+    "too few pauses to measure a rhythm ({n}); choose longer or more episodes.":
+        "ritim ölçmek için duraklama çok az ({n}); daha uzun ya da daha çok bölüm seç.",
+    "choose at least one finished episode.": "en az bir bitmiş bölüm seç.",
+    "Rhythm of finished episodes:": "Bitmiş bölümlerin ritmi:",
+    "{name}: {minutes:.0f} min, {pauses} pauses; between phrases {phrase}, longest kept {longest}":
+        "{name}: {minutes:.0f} dk, {pauses} duraklama; cümle arası {phrase}, bırakılan en uzun {longest}",
+    "A pause between phrases lasts {phrase:.2f} s; 95 in 100 pauses are shorter than {longest:.2f} s.":
+        "Cümle arası duraklama {phrase:.2f} sn sürüyor; duraklamaların 100'de 95'i {longest:.2f} sn'den kısa.",
+    "Set: shortest silence {min:.2f} s, padding before a word {before:.2f} s, after a word "
+    "{after:.2f} s. A longer silence is cut down to about {kept:.2f} s.":
+        "Ayarlandı: en kısa sessizlik {min:.2f} sn, kelimeden önce pay {before:.2f} sn, kelimeden sonra "
+        "{after:.2f} sn. Daha uzun bir sessizlik yaklaşık {kept:.2f} sn'ye kısaltılır.",
     "({n} of the times moved to the nearest pause)": "(zamanlardan {n} tanesi en yakın duraklamaya kaydırıldı)",
     "Looking for the pauses at the start and the end": "Başta ve sondaki duraklamalar aranıyor",
     "(moved to the nearest pauses)": "(en yakın duraklamalara kaydırıldı)",

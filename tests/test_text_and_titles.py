@@ -158,7 +158,7 @@ class LowerThird(unittest.TestCase):
 
 class Translations(unittest.TestCase):
     SOURCES = ["common.py", "roughcut.py", "transcript.py", "dictionary.py", "audio.py", "picture.py",
-               "clips.py", "titles.py", "speakers.py", "content.py", "sounds.py", "topics.py", "logo.py", "retakes.py",
+               "clips.py", "titles.py", "speakers.py", "content.py", "sounds.py", "topics.py", "logo.py", "retakes.py", "rhythm.py",
                "davar_gui.pyw"]
 
     def source_strings(self):

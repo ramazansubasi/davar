@@ -30,6 +30,7 @@ import i18n  # noqa: E402
 import logo as corner_logo  # noqa: E402
 import memory  # noqa: E402
 import picture  # noqa: E402
+import rhythm  # noqa: E402
 import roughcut  # noqa: E402
 import speakers  # noqa: E402
 import titles  # noqa: E402
@@ -558,6 +559,13 @@ class RoughCutPage(Page):
                          _("Raise it if word starts are clipped"))
         self.seconds_row(g, 2, _("Padding after a word"), self.pad_after, 0.0, 0.5,
                          _("Raise it if word ends are clipped"))
+        row = ttk.Frame(g, style="Card.TFrame")
+        row.grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 0))
+        self.rhythm_button = ttk.Button(row, text=_("Take the rhythm of finished episodes…"),
+                                        command=self._measure_rhythm)
+        self.rhythm_button.pack(side="left")
+        ttk.Label(row, text=_("measures their pauses and sets the three boxes above"),
+                  style="CardMuted.TLabel").pack(side="left", padx=(12, 0))
 
         g = self.card(parent, self.hesitations, _("Find “uh / um” hesitations"),
                       _("Finds drawn-out thinking sounds from the audio itself."))
@@ -623,6 +631,43 @@ class RoughCutPage(Page):
                   style="CardMuted.TLabel", wraplength=680, justify="left").pack(anchor="w", padx=(26, 0))
         for variable in (self.fillers, self.keep_from, self.keep_to, self.remove):
             variable.trace_add("write", lambda *_args: self.refresh_state())
+
+    def _measure_rhythm(self):
+        """Measure the pauses of finished episodes chosen by the user and set the silence boxes."""
+        start = self.app.video_path().parent if self.app.video.get().strip() else None
+        paths = filedialog.askopenfilenames(title=_("Choose finished episodes"), filetypes=media_types(),
+                                            initialdir=start if start and start.is_dir() else None)
+        if not paths:
+            return
+        self.rhythm_button.configure(state="disabled")
+        self.app.log(_("Measuring the rhythm of {n} episodes…").format(n=len(paths)))
+        outcome = {}
+
+        def work():
+            try:
+                outcome["result"] = rhythm.measure(paths)
+            except DavarError as e:
+                outcome["error"] = str(e)
+            except Exception as e:  # shown in the log, like the errors of a workflow
+                outcome["error"] = _("Unexpected error: {kind}: {message}").format(kind=type(e).__name__, message=e)
+
+        def check():
+            if worker.is_alive():
+                self.after(300, check)
+                return
+            self.rhythm_button.configure(state="normal")
+            if "error" in outcome:
+                self.app.log(_("Failed: {message}").format(message=outcome["error"]), error=True)
+                return
+            r = outcome["result"]
+            self.silence.set(True)
+            self.min_silence.set(r["min_silence"])
+            self.pad_before.set(r["pad_before"])
+            self.pad_after.set(r["pad_after"])
+            self.app.log(rhythm.report(r), tall=True)
+        worker = threading.Thread(target=work, daemon=True)
+        worker.start()
+        self.after(300, check)
 
     def _trimming(self):
         return any(v.get().strip() for v in (self.keep_from, self.keep_to, self.remove))
