@@ -505,7 +505,7 @@ class RoughCutPage(Page):
                      "a trimmed timeline for DaVinci Resolve. The original video is not touched. "
                      "In Resolve: File → Import → Timeline…")
     key = "rough_cut"
-    general = ("silence", "hesitations", "noises", "throat", "review_file", "ask", "min_silence", "pad_before",
+    general = ("silence", "hesitations", "noises", "throat", "retakes", "review_file", "ask", "min_silence", "pad_before",
                "pad_after", "min_hesitation", "fillers", "punch", "closeup", "every")
     per_video = ("keep_from", "keep_to", "remove")
 
@@ -514,6 +514,7 @@ class RoughCutPage(Page):
         self.hesitations = tk.BooleanVar(value=True)
         self.noises = tk.BooleanVar(value=True)
         self.throat = tk.BooleanVar(value=False)
+        self.retakes = tk.BooleanVar(value=True)
         self.review_file = tk.BooleanVar(value=False)
         self.ask = tk.BooleanVar(value=True)
         self.min_silence = tk.DoubleVar(value=0.5)
@@ -572,6 +573,12 @@ class RoughCutPage(Page):
                     "model picks about 25 likely places an hour; they arrive unticked as “throat clearing? "
                     "(listen)”, and Show → Non-speech sounds lists them. The model (16 MB) is downloaded "
                     "once, on first use. It was trained on one programme; it may miss some or pick others."))
+
+        self.card(parent, self.retakes, _("Find repeated words and talk about the recording"),
+                  _("From the transcript: a word or a few said twice in a row, a sentence begun again after "
+                    "a pause, and what is said to the crew (“baştan alıyorum”, “bunu keseriz”). They arrive "
+                    "unticked as “repeated words? (listen)” and “talk about the recording? (listen)”, and "
+                    "Show → Repeats and retakes lists them. Speech also repeats on purpose; only you can tell."))
 
         g = self.card(parent, None, _("Filler words"),
                       _("The speaker's verbal habits. Separate with commas: you know, like, I mean"))
@@ -680,7 +687,7 @@ class RoughCutPage(Page):
             every=float(self.every.get()),
             analysis=dict(
                 video=video, silence=self.silence.get(), hesitations=self.hesitations.get(),
-                noises=self.noises.get(), throat=self.throat.get(),
+                noises=self.noises.get(), throat=self.throat.get(), retakes=self.retakes.get() and bool(saved),
                 min_silence=float(self.min_silence.get()), pad_before=float(self.pad_before.get()),
                 pad_after=float(self.pad_after.get()), min_hesitation=float(self.min_hesitation.get()),
                 words=saved["words"] if saved else None, filler_words=self._filler_list(),
@@ -717,7 +724,8 @@ def shown_in(view, candidate):
             "ticked": candidate["selected"],
             "unticked": not candidate["selected"],
             "uncertain": candidate["confidence"] != "high",
-            "sounds": candidate["kind"] in ("noise", "unknown", "throat")}[view]
+            "sounds": candidate["kind"] in ("noise", "unknown", "throat"),
+            "retakes": candidate["kind"] in ("repeat", "retake")}[view]
 
 
 class ReviewWindow(tk.Toplevel):
@@ -748,7 +756,8 @@ class ReviewWindow(tk.Toplevel):
         row.pack(anchor="w", pady=(8, 0))
         ttk.Label(row, text=_("Show"), style="Panel.TLabel").pack(side="left")
         self.views = {_("All"): "all", _("To be cut"): "ticked", _("Not to be cut"): "unticked",
-                      _("Uncertain ones"): "uncertain", _("Non-speech sounds"): "sounds"}
+                      _("Uncertain ones"): "uncertain", _("Non-speech sounds"): "sounds",
+                      _("Repeats and retakes"): "retakes"}
         self.view = tk.StringVar(value=_("All"))
         choice = ttk.Combobox(row, textvariable=self.view, values=list(self.views), width=22, state="readonly")
         choice.pack(side="left", padx=(8, 0))

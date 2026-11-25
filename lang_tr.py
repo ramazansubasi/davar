@@ -443,6 +443,18 @@ TRANSLATIONS = {
         "Kesimler : Kaba Kurgu'nun {n} kesimi uygulandı, {seconds:.1f} sn kısaldı",
     "throat clearing? (listen)": "boğaz temizleme? (dinle)",
     "Find throat clearing with the sound model": "Boğaz temizlemeyi ses modeliyle bul",
+    "repeated words? (listen)": "tekrarlanan söz? (dinle)",
+    "talk about the recording? (listen)": "çekimle ilgili konuşma? (dinle)",
+    "Find repeated words and talk about the recording": "Tekrarlanan sözleri ve çekimle ilgili konuşmaları bul",
+    "From the transcript: a word or a few said twice in a row, a sentence begun again after "
+    "a pause, and what is said to the crew (“baştan alıyorum”, “bunu keseriz”). They arrive "
+    "unticked as “repeated words? (listen)” and “talk about the recording? (listen)”, and "
+    "Show → Repeats and retakes lists them. Speech also repeats on purpose; only you can tell.":
+        "Dökümden: art arda iki kez söylenen bir ya da birkaç kelime, duraksayıp yeniden başlanan cümle ve "
+        "ekibe söylenenler (“baştan alıyorum”, “bunu keseriz”). İşaretsiz olarak “tekrarlanan söz? (dinle)” "
+        "ve “çekimle ilgili konuşma? (dinle)” diye gelir; Göster → Tekrarlar ve çekim konuşmaları onları "
+        "listeler. Konuşmada bilerek yapılan tekrarlar da olur; ayırt etmek size kalır.",
+    "Repeats and retakes": "Tekrarlar ve çekim konuşmaları",
     "Also the throat clearing that runs into speech, which the rule above misses. A sound "
     "model picks about 25 likely places an hour; they arrive unticked as “throat clearing? "
     "(listen)”, and Show → Non-speech sounds lists them. The model (16 MB) is downloaded "

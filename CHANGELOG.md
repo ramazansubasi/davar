@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Rough Cut: repeated words and talk about the recording.** From the transcript: a word or a few said twice in a row ("rahat konuşun rahat konuşun", "yayın yayından"), a sentence begun again after a pause, and what is said to the crew ("baştan alıyorum", "bunu keseriz", "kayıttayız"). When the words after "baştan alıyorum" were already said a little earlier, the whole abandoned take is offered. They arrive unticked, as speech also repeats on purpose, and **Show → Repeats and retakes** lists them. On by default when there is a transcript.
+
 ## 0.4.0 - 2026-11-25
 
 ### Added

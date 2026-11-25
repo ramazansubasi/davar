@@ -565,7 +565,8 @@ def kind_name(candidate):
              "word_end": _("stretch (end of a word)"), "between_words": _("uh / um (between words)"),
              "word": _("filler word"), "text_only": _("uh / um (transcript only)"),
              "noise": _("non-speech sound (cough, breath)"),
-             "unknown": _("sound with no word (listen)"), "throat": _("throat clearing? (listen)")}
+             "unknown": _("sound with no word (listen)"), "throat": _("throat clearing? (listen)"),
+             "repeat": _("repeated words? (listen)"), "retake": _("talk about the recording? (listen)")}
     return (_("short") + " " if candidate.get("short") else "") + names[candidate["kind"]]
 
 
@@ -585,7 +586,7 @@ def is_filler_sound(word, language="tr"):
 
 
 def build_candidates(hesitations, db, words=None, filler_words=(), include_word_ends=False,
-                     short_hesitations=(), language="tr", noises=(), throats=()):
+                     short_hesitations=(), language="tr", noises=(), throats=(), retakes=()):
     """List the hesitations and filler words that may be cut, each with a confidence level.
 
     `words` is the transcript's list of (text, start, end). When given, hesitations
@@ -593,6 +594,8 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
     `short_hesitations` are short sounds found with a loose measure: they become
     candidates only where the transcript also heard an "uh / um". `throats` are likely
     throat clearings found by the sound model (see sounds.py): suggestions, never ticked.
+    `retakes` are repeated words and talk about the recording found in the transcript
+    (see retakes.py), as (start, end, first word, last word, kind, confidence): never ticked.
 
     Every candidate carries its surrounding sentence twice: "context" as plain text and
     "parts" as [(word, is this the thing being cut)], so an interface can highlight it.
@@ -735,6 +738,10 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
             c["context"], c["parts"] = context(c["start"], c["end"])
         else:
             add(start, end, "throat", confidence, False)
+    # Repeats, restarts and talk about the recording. Only a listener can tell a slip from
+    # a repeat said on purpose, so nothing is ticked. Edges move to the quietest moment nearby.
+    for start, end, first, last, kind, confidence in retakes:
+        add(snap(start), snap(end), kind, confidence, False, first, last)
     # Last check against the transcript: a sound candidate that swallows a transcribed word is
     # either a mistake of ours or a mistimed word. It stays in the list, unticked, for the listener.
     if words:
@@ -754,7 +761,7 @@ def build_candidates(hesitations, db, words=None, filler_words=(), include_word_
 def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0.10, pad_after=0.15,
             threshold=None, min_hesitation=0.30, include_word_ends=False, words=None,
             filler_words=(), language="tr", keep_from=None, keep_to=None, remove=(), noises=True,
-            throat=False, progress=None):
+            throat=False, retakes=False, progress=None):
     """Analyse the video and return a state holding the silence threshold and the cut candidates.
 
     Writes nothing. The result goes to `apply`; in between, the "selected" flags of
@@ -762,7 +769,8 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
 
     `keep_from` / `keep_to` trim everything before / after those seconds, and `remove`
     is a list of (start, end) ranges to drop from the middle, such as a repeated take.
-    `noises` also looks for coughs and other non-speech sounds.
+    `noises` also looks for coughs and other non-speech sounds, `throat` for throat clearing
+    with the sound model, and `retakes` for repeated words and talk about the recording.
     """
     def step(percent, text):
         if progress:
@@ -772,7 +780,7 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
     if not video.is_file():
         raise DavarError(_("file not found: {path}").format(path=video))
     trimming = keep_from is not None or keep_to is not None or bool(remove)
-    if not silence and not hesitations and not filler_words and not trimming and not noises:
+    if not silence and not hesitations and not filler_words and not trimming and not noises and not retakes:
         raise DavarError(_("nothing was selected to cut."))
     if keep_from is not None and keep_to is not None and keep_to <= keep_from:
         raise DavarError(_("the end of the programme must come after its start."))
@@ -803,17 +811,20 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
         if noises:
             step(85, _("Looking for non-speech sounds"))
             bursts = find_noises(features, used)
+    def usable(moment):  # a place that is trimmed away anyway is not offered
+        return ((keep_from is None or moment >= keep_from) and (keep_to is None or moment < keep_to)
+                and not any(start <= moment < end for start, end in remove))
     throats = []
     if throat:  # with the sound model; downloaded on first use
         import sounds
-
-        def usable(moment):  # a place that is trimmed away anyway is not offered
-            return ((keep_from is None or moment >= keep_from) and (keep_to is None or moment < keep_to)
-                    and not any(start <= moment < end for start, end in remove))
         throats = sounds.find_throat_clearing(samples, db, used, usable, lambda share, text: step(86 + 4 * share, text))
+    repeats = []
+    if retakes and words:
+        import retakes as slips  # imported here: retakes itself uses this module
+        repeats = [r for r in slips.find_retakes(words, language) if usable((r[0] + r[1]) / 2)]
     step(90, _("Preparing candidates"))
     candidates = build_candidates(found, db, words, filler_words, include_word_ends, short, language, bursts,
-                                  throats)
+                                  throats, repeats)
     step(100, _("Analysis finished"))
     return {
         "video": video, "info": info, "fps": float(info["fps"]), "db": db, "samples": samples,
