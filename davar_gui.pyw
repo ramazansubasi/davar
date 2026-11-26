@@ -22,6 +22,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ai  # noqa: E402
 import audio  # noqa: E402
 import clips  # noqa: E402
 import content  # noqa: E402
@@ -1588,17 +1589,19 @@ class MultiCamPage(Planned):
 
 class ContentAnalysisPage(Page):
     name = N_("Content Analysis")
-    description = N_("Has an AI chat of your choice write the YouTube texts: title suggestions, a description "
-                     "with chapters, tags, a summary and social clip candidates. No key and no fee: you paste "
-                     "Davar's prompt into the chat and its answer back here.")
+    description = N_("Has an AI write the YouTube texts: title suggestions, a description with chapters, tags, "
+                     "a summary and social clip candidates. No key and no fee: Claude Code, when it is installed, "
+                     "is asked straight away with your own Claude subscription; otherwise you paste Davar's "
+                     "prompt into an AI chat and its answer back here.")
     key = "content"
-    general = ("programme", "channel")
+    general = ("programme", "channel", "direct")
     per_video = ("notes",)
 
     def build(self, parent):
         self.programme = tk.StringVar()
         self.channel = tk.StringVar()
         self.notes = tk.StringVar()
+        self.direct = tk.BooleanVar(value=True)
 
         g = self.card(parent, None, _("1. Prepare the prompt"),
                       _("Start writes the transcript with its times on the Rough Cut timeline and who says "
@@ -1615,8 +1618,13 @@ class ContentAnalysisPage(Page):
                                                                    pady=(8, 0))
         self.prompt_status = ttk.Label(g, text="", style="CardMuted.TLabel", wraplength=680, justify="left")
         self.prompt_status.grid(row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
+        self.direct_box = ttk.Checkbutton(g, text=_("Ask Claude Code straight away"), variable=self.direct,
+                                          style="Card.TCheckbutton")
+        self.direct_box.grid(row=4, column=0, columnspan=3, sticky="w", pady=(8, 0))
+        self.direct_status = ttk.Label(g, text="", style="CardMuted.TLabel", wraplength=680, justify="left")
+        self.direct_status.grid(row=5, column=0, columnspan=3, sticky="w")
         self.copy_button = ttk.Button(g, text=_("Copy the prompt again"), command=self._copy_again)
-        self.copy_button.grid(row=4, column=0, columnspan=3, sticky="w", pady=(8, 0))
+        self.copy_button.grid(row=6, column=0, columnspan=3, sticky="w", pady=(8, 0))
 
         g = self.card(parent, None, _("2. Paste the answer"),
                       _("Copy the AI chat's whole answer, paste it here and press Write the texts. The texts are "
@@ -1653,6 +1661,14 @@ class ContentAnalysisPage(Page):
             list=", ".join(name for name, _title in people)) if people
             else _("No speakers are written on the Titles page; the lines will not say who speaks.")))
         self.copy_button.configure(state="normal" if prompt is not None and prompt.is_file() else "disabled")
+        installed = ai.claude_path() is not None
+        self.direct_box.configure(state="normal" if installed else "disabled")
+        self.direct_status.configure(text=(
+            _("Claude Code writes the texts with your Claude subscription, in a few minutes. It is sent what "
+              "you would paste into a chat: the transcript and the notes. The first time, sign in to it: "
+              "type claude in a terminal and then /login.") if installed else
+            _("Claude Code is not installed on this computer, so the prompt is copied for an AI chat. "
+              "Claude Code is Anthropic's command-line program: claude.com/product/claude-code")))
         if video and not self.app.transcript():
             return _("Run Transcribe first")
         return ""
@@ -1662,17 +1678,41 @@ class ContentAnalysisPage(Page):
         return dict(video=self.app.video_path(), folder=self.app.output_folder(),
                     words=saved["words"] if saved else None, language=saved.get("language", "tr") if saved else "tr",
                     programme=self.programme.get(), channel=self.channel.get(), notes=self.notes.get(),
-                    people=self._people())
+                    people=self._people(), direct=self.direct.get() and ai.claude_path() is not None)
 
     def run(self, settings, progress):
-        return content.prepare(progress=progress, **settings)
+        settings = dict(settings)
+        direct = settings.pop("direct")
+        result = content.prepare(progress=progress, **settings)
+        if direct:  # Claude Code answers here; a failure leaves the prompt to be pasted into a chat
+            progress(95, _("Claude Code is writing the texts (a few minutes)"))
+            try:
+                result["answer_text"] = ai.ask_claude(result["prompt"])
+                result["texts"] = content.finish(settings["video"], result["answer_text"], settings["folder"],
+                                                 settings["language"])
+            except DavarError as e:
+                result["asked_error"] = str(e)
+        return result
 
     def finish(self, result):
-        self._copy(result["prompt"])
+        if result.get("answer_text"):  # shown in box 2, where it can be changed and written again
+            self.answer.delete("1.0", "end")
+            self.answer.insert("1.0", result["answer_text"])
+        if result.get("texts"):
+            result["output"] = result["texts"]["output"]
+        else:
+            self._copy(result["prompt"])
         return result
 
     def result_text(self, result):
-        return content.report_prompt(result)
+        if result.get("texts"):
+            return "\n".join([content.report_prompt(result, copied=False), "",
+                              _("Claude Code answered."), content.report_texts(result["texts"])])
+        text = content.report_prompt(result)
+        if result.get("asked_error"):
+            text = (_("Claude Code could not write the texts: {message}").format(message=result["asked_error"])
+                    + "\n" + text)
+        return text
 
     def _copy(self, text):
         self.app.clipboard_clear()

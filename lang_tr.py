@@ -511,12 +511,35 @@ TRANSLATIONS = {
     "Downloading the sound model (16 MB, only once)": "Ses modeli indiriliyor (16 MB, yalnızca bir kez)",
     "Listening for throat clearing": "Boğaz temizleme sesleri dinleniyor",
     "Finding where each throat clearing begins and ends": "Her boğaz temizlemenin başı ve sonu aranıyor",
-    "Has an AI chat of your choice write the YouTube texts: title suggestions, a description "
-    "with chapters, tags, a summary and social clip candidates. No key and no fee: you paste "
-    "Davar's prompt into the chat and its answer back here.":
-        "YouTube metinlerini seçtiğin bir yapay zekâ sohbetine yazdırır: başlık önerileri, bölüm zamanlı "
-        "açıklama, etiketler, özet ve sosyal klip adayları. Anahtar ve ücret gerekmez: Davar'ın istemini "
-        "sohbete, cevabını buraya yapıştırırsın.",
+    "Has an AI write the YouTube texts: title suggestions, a description with chapters, tags, "
+    "a summary and social clip candidates. No key and no fee: Claude Code, when it is installed, "
+    "is asked straight away with your own Claude subscription; otherwise you paste Davar's "
+    "prompt into an AI chat and its answer back here.":
+        "YouTube metinlerini bir yapay zekâya yazdırır: başlık önerileri, bölüm zamanlı açıklama, etiketler, "
+        "özet ve sosyal klip adayları. Anahtar ve ücret gerekmez: Claude Code kuruluysa doğrudan, kendi Claude "
+        "aboneliğinle ona sorulur; değilse Davar'ın istemini bir yapay zekâ sohbetine, cevabını buraya "
+        "yapıştırırsın.",
+    "Ask Claude Code straight away": "Doğrudan Claude Code'a sor",
+    "Claude Code writes the texts with your Claude subscription, in a few minutes. It is sent what "
+    "you would paste into a chat: the transcript and the notes. The first time, sign in to it: "
+    "type claude in a terminal and then /login.":
+        "Metinleri Claude Code, Claude aboneliğinle birkaç dakikada yazar. Ona, bir sohbete yapıştıracağın "
+        "şey gönderilir: döküm ve notlar. İlk seferde oturum aç: bir terminalde claude yaz, sonra /login.",
+    "Claude Code is not installed on this computer, so the prompt is copied for an AI chat. "
+    "Claude Code is Anthropic's command-line program: claude.com/product/claude-code":
+        "Bu bilgisayarda Claude Code kurulu değil; bu yüzden istem bir yapay zekâ sohbeti için kopyalanır. "
+        "Claude Code, Anthropic'in komut satırı programıdır: claude.com/product/claude-code",
+    "Claude Code is writing the texts (a few minutes)": "Claude Code metinleri yazıyor (birkaç dakika)",
+    "Claude Code answered.": "Claude Code cevap verdi.",
+    "Claude Code could not write the texts: {message}": "Claude Code metinleri yazamadı: {message}",
+    "Claude Code is not installed on this computer; copy the prompt into an AI chat instead.":
+        "Bu bilgisayarda Claude Code kurulu değil; istemi bunun yerine bir yapay zekâ sohbetine kopyala.",
+    "Claude Code gave no answer in {minutes} minutes.": "Claude Code {minutes} dakikada cevap vermedi.",
+    "Claude Code could not be started: {message}": "Claude Code başlatılamadı: {message}",
+    "Claude Code did not answer: {message}": "Claude Code cevap vermedi: {message}",
+    "an empty answer": "boş bir cevap",
+    "Claude Code is not signed in. Open a terminal, type claude, sign in with /login, and try again.":
+        "Claude Code'da oturum açık değil. Bir terminal aç, claude yaz, /login ile oturum aç ve yeniden dene.",
     "1. Prepare the prompt": "1. İstemi hazırla",
     "Start writes the transcript with its times on the Rough Cut timeline and who says "
     "what, and copies it. The speakers and their titles are taken from the Titles page. "

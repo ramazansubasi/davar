@@ -282,7 +282,8 @@ def prepare(video, words, folder=None, language="tr", programme="", channel="", 
     output = target / (video.stem + "_prompt.txt")
     output.write_text(prompt, encoding="utf-8")
     step(100, _("Finished"))
-    return {"output": output, "prompt": prompt, "lines": len(lines), "characters": len(prompt),
+    return {"output": output, "prompt_file": output, "prompt": prompt, "lines": len(lines),
+            "characters": len(prompt),
             "on_timeline": on_timeline, "speakers": bool(turns)}
 
 
@@ -304,14 +305,15 @@ def finish(video, answer_text, folder=None, language="tr"):
     return {"output": output, "answer": answer, "on_timeline": on_timeline}
 
 
-def report_prompt(r):
+def report_prompt(r, copied=True):
+    """The prompt written; with `copied`, how to take it to an AI chat."""
     lines = [_("Prompt written: {path} ({lines} lines, {characters} characters)").format(
-        path=r["output"], lines=r["lines"], characters=r["characters"]),
+        path=r["prompt_file"], lines=r["lines"], characters=r["characters"]),
         _("Times are on the Rough Cut timeline, so the chapters will match the finished video.") if r["on_timeline"]
-        else _("There is no Rough Cut timeline yet: the times are those of the uncut video."),
-        "",
-        _("The prompt is copied. Open an AI chat (claude.ai, gemini.google.com or chatgpt.com), paste it and "
-          "send it. Copy its whole answer and paste it into box 2 on this page.")]
+        else _("There is no Rough Cut timeline yet: the times are those of the uncut video.")]
+    if copied:
+        lines += ["", _("The prompt is copied. Open an AI chat (claude.ai, gemini.google.com or chatgpt.com), "
+                        "paste it and send it. Copy its whole answer and paste it into box 2 on this page.")]
     return "\n".join(lines)
 
 
@@ -332,6 +334,7 @@ def main():
     p = argparse.ArgumentParser(description="Write a prompt for the YouTube texts, or the texts from its answer.")
     p.add_argument("video", type=Path, help="path of the video file")
     p.add_argument("--answer", type=Path, default=None, help="a file holding the AI chat's answer")
+    p.add_argument("--claude", action="store_true", help="ask Claude Code, installed on this computer, for the answer")
     p.add_argument("--programme", default="", help="name of the programme")
     p.add_argument("--channel", default="", help="name of the channel")
     a = p.parse_args()
@@ -341,6 +344,12 @@ def main():
         language = saved.get("language", "tr") if saved else "tr"
         if a.answer:
             print(report_texts(finish(a.video, a.answer.read_text(encoding="utf-8"), language=language)))
+        elif a.claude:
+            import ai
+            written = prepare(a.video, saved["words"] if saved else None, language=language,
+                              programme=a.programme, channel=a.channel)
+            print(report_prompt(written, copied=False))
+            print(report_texts(finish(a.video, ai.ask_claude(written["prompt"]), language=language)))
         else:
             print(report_prompt(prepare(a.video, saved["words"] if saved else None, language=language,
                                         programme=a.programme, channel=a.channel)))

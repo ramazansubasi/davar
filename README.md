@@ -21,7 +21,7 @@ Six of the ten workflows work; four are planned.
 | 03 | Transcribe | works | Transcribes the speech once with word-level timing and saves it; writes subtitles (`.srt`) and text (`.txt`) |
 | 04 | Rough Cut | works | Finds silences, "uh / um" hesitations and filler words, lets you review the candidates, writes a Resolve timeline (`.fcpxml`) |
 | 05 | Multicam Edit | planned | Picks the camera of whoever is speaking |
-| 06 | Content Analysis | works | Has an AI chat of your choice write the YouTube texts: titles, description with chapters, tags, social clip candidates |
+| 06 | Content Analysis | works | Has Claude Code or an AI chat of your choice write the YouTube texts: titles, description with chapters, tags, social clip candidates |
 | 07 | Titles | works | Makes a transparent lower third with a soft entrance and exit for a speaker's name and title, and for the topic being talked about, and places them on the timeline |
 | 08 | Visual Assets | planned | Places photos and documents to cut in |
 | 09 | Social Clips | works | Cuts a chosen range into a vertical Reels / Shorts video with headline, subtitles and cover |
@@ -215,6 +215,8 @@ Has an AI chat write the texts for YouTube: five title suggestions, a descriptio
 3. Copy the whole answer, paste it into box 2 and press **Write the texts**. Davar checks it and writes `<video>_youtube.txt`, ready to copy into YouTube Studio.
 
 Because the times are on the Rough Cut timeline, the chapters match the finished video. Davar puts the first chapter at 0:00 and drops chapters closer than ten seconds, as YouTube requires. For each social clip candidate the times in the uncut video are given too, which is what Social Clips takes. The transcript goes to the AI service you paste it into.
+
+**Asking Claude Code straight away.** With [Claude Code](https://claude.com/product/claude-code), Anthropic's command-line program, installed on the computer, **Ask Claude Code straight away** (on by default) skips the copying and pasting: Start hands Claude Code the prompt, and its answer is written into box 2 and turned into the texts at once. It answers with your own Claude subscription (Pro or Max), so there is still no key and no fee beyond it; a long programme takes a few minutes. Sign in once first: type `claude` in a terminal and then `/login`. Davar runs it with none of its tools, in an empty folder and without keeping the conversation, so it can only read the prompt and write the answer; it is sent the same prompt you would paste into a chat. If it is not signed in or does not answer, the log says why and the prompt is copied as before.
 
 ## 07 Titles
 

@@ -21,7 +21,7 @@ On iş akışından altısı çalışıyor, dördü planlandı.
 | 03 | İlk Analiz | çalışıyor | Konuşmayı bir kez, kelime zamanlarıyla yazıya döker ve kaydeder; altyazı (`.srt`) ve metin (`.txt`) üretir |
 | 04 | Kaba Kurgu | çalışıyor | Sessizlikleri, "ııı / eee" duraksamalarını ve dolgu kelimelerini bulur; adayları onayına sunar; Resolve çizelgesi (`.fcpxml`) yazar |
 | 05 | Çok Kamera Kurgusu | planlandı | Kim konuşuyorsa onun kamerasını seçer |
-| 06 | İçerik Analizi | çalışıyor | YouTube metinlerini seçtiğin bir yapay zekâ sohbetine yazdırır: başlıklar, bölüm zamanlı açıklama, etiketler, sosyal klip adayları |
+| 06 | İçerik Analizi | çalışıyor | YouTube metinlerini Claude Code'a ya da seçtiğin bir yapay zekâ sohbetine yazdırır: başlıklar, bölüm zamanlı açıklama, etiketler, sosyal klip adayları |
 | 07 | Yazılar | çalışıyor | Konuşmacı adı ve unvanı, bir de konuşulan gündem için saydam zeminli, yumuşak giriş-çıkışlı KJ (alt bant) videoları üretir ve zaman çizelgesine yerleştirir |
 | 08 | Görsel Malzeme | planlandı | Araya girecek fotoğraf ve belgelerin yerleşimi |
 | 09 | Sosyal Klipler | çalışıyor | Seçilen aralığı başlık, altyazı ve kapakla dikey Reels / Shorts olarak keser |
@@ -209,6 +209,8 @@ YouTube metinlerini bir yapay zekâ sohbetine yazdırır: beş başlık önerisi
 3. Cevabın tamamını kopyala, 2. kutuya yapıştır ve **Metinleri yaz**'a bas. Davar cevabı denetler ve YouTube Studio'ya kopyalanmaya hazır `<video>_youtube.txt` dosyasını yazar.
 
 Zamanlar Kaba Kurgu çizelgesine göre olduğu için bölümler bitmiş videoyla örtüşür. YouTube'un istediği gibi Davar ilk bölümü 0:00'a koyar, birbirine on saniyeden yakın bölümleri atar. Her sosyal klip adayı için kesilmemiş videodaki zamanlar da yazılır; Sosyal Klipler bu zamanları kullanır. Döküm, onu yapıştırdığın yapay zekâ hizmetine gider.
+
+**Doğrudan Claude Code'a sorma.** Bilgisayarda Anthropic'in komut satırı programı [Claude Code](https://claude.com/product/claude-code) kuruluysa **Doğrudan Claude Code'a sor** (varsayılan olarak açık) kopyalayıp yapıştırma adımını kaldırır: Başlat istemi Claude Code'a verir, cevabı 2. kutuya yazılır ve hemen metinlere dönüştürülür. Cevabı kendi Claude aboneliğinle (Pro ya da Max) verir; yani yine anahtar ve ek ücret gerekmez. Uzun bir program birkaç dakika sürer. Önce bir kez oturum aç: bir terminalde `claude` yaz, sonra `/login`. Davar onu hiçbir aracı olmadan, boş bir klasörde ve konuşmayı saklamadan çalıştırır; yani yalnızca istemi okuyup cevap yazabilir. Ona, bir sohbete yapıştıracağın istemin aynısı gönderilir. Oturum açık değilse ya da cevap gelmezse kayıt penceresi nedenini yazar ve istem eskisi gibi kopyalanır.
 
 ## 07 Yazılar
 
