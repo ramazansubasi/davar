@@ -75,6 +75,30 @@ class Markers(unittest.TestCase):
             self.assertEqual(roughcut.read_timeline(timeline, video, INFO)["markers"], [(70, "x")])
 
 
+class MarkerFile(unittest.TestCase):
+    def test_markers_are_written_as_resolve_writes_them(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = roughcut.markers_path(Path(folder) / "talk_cut.fcpxml")
+            self.assertEqual(path.name, "talk_cut_markers.edl")
+            roughcut.write_marker_edl(path, [(3 * 3600 * 25 + 26, "b|c\nd"), (5 * 25 + 24, "dinle (şey)")],
+                                      Fraction(FPS), "talk_cut")
+            data = path.read_bytes()
+            self.assertIn(b"\r\n", data)
+            lines = data.decode("utf-8").split("\r\n")
+            self.assertEqual(lines[:2], ["TITLE: talk_cut", "FCM: NON-DROP FRAME"])
+            self.assertEqual(lines[3].split(), ["001", "001", "V", "C", "00:00:05:24", "00:00:06:00",
+                                                "00:00:05:24", "00:00:06:00"])
+            self.assertEqual(lines[4], " |C:ResolveColorYellow |M:dinle (şey) |D:1")
+            self.assertEqual(lines[6].split()[4], "03:00:01:01")
+            self.assertEqual(lines[7], " |C:ResolveColorYellow |M:b/c d |D:1")
+
+    def test_ntsc_counts_thirty_frames_a_second(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "m.edl"
+            roughcut.write_marker_edl(path, [(95, "x")], Fraction(30000, 1001), "m")
+            self.assertIn("00:00:03:05 00:00:03:06", path.read_text(encoding="utf-8"))
+
+
 class Pauses(unittest.TestCase):
     # speech from 1.0 to 2.0 s and from 2.5 to 4.0 s, quiet in between
     DB = levels([(1.0, 2.0), (2.5, 4.0)])

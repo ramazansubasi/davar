@@ -465,6 +465,11 @@ TRANSLATIONS = {
         "Dinlenecek birleşimler: {n}; kesimin bir kelimenin içinden geçtiği ve birleşimde ses olan yerler.",
     "{timeline} on the timeline ({video} in the video)  «{word}»": "çizelgede {timeline} (videoda {video})  «{word}»",
     "Mark the joins to listen to": "Dinlenecek birleşimleri işaretle",
+    "The same markers for Resolve: {path}": "Aynı işaretler Resolve için: {path}",
+    "In Resolve, right-click the timeline in the Media Pool and choose Timelines > Import > "
+    "Timeline Markers from EDL.":
+        "Resolve'da Media Pool'daki çizelgeye sağ tıklayıp Timelines > Import > "
+        "Timeline Markers from EDL'i seçin.",
     "Take the rhythm of finished episodes…": "Bitmiş bölümlerin ritmini al…",
     "measures their pauses and sets the three boxes above": "duraklamalarını ölçer, yukarıdaki üç kutuyu ayarlar",
     "Choose finished episodes": "Bitmiş bölümleri seç",

@@ -505,6 +505,32 @@ def cut_subtitles_path(timeline):
     return Path(timeline).with_suffix(".srt")
 
 
+def markers_path(timeline):
+    """Where the markers of a timeline go for Resolve: talk_cut.fcpxml -> talk_cut_markers.edl."""
+    timeline = Path(timeline)
+    return timeline.with_name(timeline.stem + "_markers.edl")
+
+
+def write_marker_edl(path, markers, fps, title):
+    """Write markers as Resolve writes them with Timeline > Export > Timeline Markers to EDL, so
+    that they can be brought in with Import > Timeline Markers from EDL (Resolve does not read the
+    markers of an FCPXML). `markers`: (frame on the timeline, text). The timeline starts at
+    00:00:00:00, as the FCPXML timelines of Davar do."""
+    base = round(float(fps))  # frames counted in a second of timecode (30 for 29.97, non-drop)
+
+    def timecode(frame):
+        seconds, frames = divmod(frame, base)
+        return f"{seconds // 3600:02d}:{seconds // 60 % 60:02d}:{seconds % 60:02d}:{frames:02d}"
+
+    lines = [f"TITLE: {title}", "FCM: NON-DROP FRAME", ""]
+    for n, (frame, text) in enumerate(sorted(markers), start=1):
+        text = " ".join(str(text).replace("|", "/").split())
+        lines += [f"{n:03d}  001      V     C        {timecode(frame)} {timecode(frame + 1)} "
+                  f"{timecode(frame)} {timecode(frame + 1)}  ",
+                  f" |C:ResolveColorYellow |M:{text} |D:1", ""]
+    Path(path).write_text("\r\n".join(lines), encoding="utf-8", newline="")
+
+
 def write_fcpxml(output, video, info, parts, label="cut", overlays=(), framings=None, still=None, markers=()):
     """Write the parts of the video one after the other as a timeline.
 
@@ -979,6 +1005,12 @@ def apply(state, output=None, review=False, close_up=None, places=(), speakers=2
     markers = [(frame, _("Davar: listen to this join ({word})").format(word=word))
                for frame, word in checks] if mark_joins else ()
     write_fcpxml(output, video, info, parts, overlays=titles, framings=framed, still=still, markers=markers)
+    marker_file = markers_path(output)
+    if markers:  # the same markers once more, in a file Resolve can import
+        write_marker_edl(marker_file, [(timeline_place(parts, frame)[2], text) for frame, text in markers
+                                       if timeline_place(parts, frame)], fps, output.stem)
+    elif marker_file.is_file():  # left by an earlier cut of this video; its markers no longer fit
+        marker_file.unlink()
     subtitles = None
     if state.get("words"):  # subtitles always follow the cut, never the uncut video
         subtitles = cut_subtitles_path(output)
@@ -1009,6 +1041,7 @@ def apply(state, output=None, review=False, close_up=None, places=(), speakers=2
         "close_share": (sum(end - start for (start, end), f in zip(parts, framed) if f != WIDE)
                         / sum(end - start for start, end in parts)) if framed else 0.0,
         "output": output, "review": review_file, "subtitles": subtitles, "marked": bool(markers),
+        "marker_file": marker_file if markers else None,
         "checks": [(timeline_place(parts, frame)[2] / fps, frame / fps, word) for frame, word in checks],
         "keep_from": state.get("keep_from"), "keep_to": state.get("keep_to"),
         "remove": state.get("remove", []), "moved": state.get("moved", 0),
@@ -1084,6 +1117,10 @@ def report(r, detailed=True):
                 timeline=format_time(moment), video=format_time(source), word=word))
         if len(r["checks"]) > 40:
             lines.append("  " + _("... and {n} more").format(n=len(r["checks"]) - 40))
+        if r.get("marker_file"):
+            lines.append(_("The same markers for Resolve: {path}").format(path=r["marker_file"]))
+            lines.append(_("In Resolve, right-click the timeline in the Media Pool and choose Timelines > Import > "
+                           "Timeline Markers from EDL."))
     return "\n".join(lines)
 
 
