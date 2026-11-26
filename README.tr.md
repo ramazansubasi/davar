@@ -261,6 +261,8 @@ Altyazı için İlk Analiz'in metni kullanılır; analiz yoksa seçilen aralık 
 
 **İçerik Analizi'nin adayları.** İçerik Analizi üç-beş sosyal klip önerir ve her biri için üstüne yazılacak manşeti de yazar: klipte söylenen en çarpıcı söz, tırnak içinde, büyük harfle, iki satır. **Adayları al** onları bu sayfada listeler. Yapay zekâ aralığı yaklaşık yirmi saniyelik döküm satırlarından seçtiği için aralıklar önce dökümün tam cümlelerine oturtulur: başlangıç cümlesinin başına (en çok dört saniye geri) ya da bir sonraki cümleye, bitiş cümlesinin sonuna (en çok altı saniye ileri) ya da bir önceki cümlenin sonuna kayar. Yapılacakları işaretleyip Başlat'a bas: her biri kendi manşetiyle ve bu sayfadaki üst satır, kadraj ve eklerle sırayla `Klip 1 - <manşet>.mp4` adıyla üretilir. **Doldur** ise bir adayı kutulara koyar; aralığını ya da manşetini değiştirip tek başına üretmek için.
 
+**Konuşanı izleme.** Dikey kadraj yan yana oturan iki kişiden birini gösterir; ortadan alınırsa ikisi de yarım kalır. **Konuşanı izle** işaretliyken kadraj, ikinci bir kameranın yapacağı gibi konuşan kişiye geçer: kimin ne zaman konuştuğu dökümden (her birinin kendi mikrofonu varsa iki mikrofondan, kelime kelime), kimin nerede oturduğu görüntüden alınır; konuşan, dinleyenden daha çok kıpırdar. Geçiş, yeni konuşan söze başlamadan çeyrek saniye önce yapılır; klibin başında ya da sonunda bir buçuk saniyeden kısa kalacak çekim yapılmaz. Görüntü kimin nerede oturduğunu göstermezse kaydırıcıdaki kadraj kullanılır ve kayıt penceresi bunu söyler. Döküm gerekir; tek geniş çekimde birlikte görünen iki kişi için yapılmıştır.
+
 ## Sınırlar
 
 - Varsayılan olarak yalnızca en az 0,3 saniye süren, net duraksamalar kesilir. Daha kısaları, metin de aynı yerde duymuşsa öneri olarak gelir.

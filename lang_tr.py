@@ -885,4 +885,17 @@ TRANSLATIONS = {
         "Metin    : İlk Analiz yeni videoya taşındı (ses değişmedi)",
     "Time     : {minutes:.0f} min": "Süre     : {minutes:.0f} dk",
     "Video written (audio not touched): {path}": "Video yazıldı (sese dokunulmadı): {path}",
+    # following the speaker in Social Clips
+    "run Transcribe first; following the speaker needs the transcript.":
+        "önce İlk Analiz'i çalıştır; konuşanı izlemek için döküm gerekir.",
+    "Watching where the speakers sit": "Konuşmacıların nerede oturduğuna bakılıyor",
+    "Framing  : follows whoever speaks, {n} shots": "Kadraj   : konuşanı izliyor, {n} çekim",
+    "Framing  : the picture did not tell where the speakers sit; the fixed framing was used":
+        "Kadraj   : görüntüden konuşmacıların yeri anlaşılamadı; sabit kadraj kullanıldı",
+    "Follow whoever speaks": "Konuşanı izle",
+    "For two people filmed together in one wide shot: the frame cuts to whoever is speaking. Who speaks when is "
+    "taken from the transcript, where they sit from the picture; the slider above is used when the picture does "
+    "not tell.":
+        "Tek geniş çekimde birlikte görünen iki kişi için: kadraj konuşan kişiye geçer. Kimin ne zaman konuştuğu "
+        "dökümden, nerede oturdukları görüntüden alınır; görüntü bunu göstermezse yukarıdaki kaydırıcı kullanılır.",
 }

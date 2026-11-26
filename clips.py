@@ -9,6 +9,11 @@ hesitations and trimmed parts are left out of the clip, and the subtitles follow
 The social clip candidates of Content Analysis can be made one after the other
 (make_clips); their ranges are first fitted to whole sentences of the transcript.
 
+The frame can follow whoever speaks, for two people filmed together in one wide shot:
+who speaks when is known from the transcript (and the two microphones, when each has
+one), and where each of them sits from the picture, since whoever speaks moves more
+than whoever listens. The frame cuts to the speaker at each change of turn.
+
     python clips.py "video.mp4" 13:06 13:56 --headline "TRAFFIC IN TUZLA" --subtitles
 """
 
@@ -22,6 +27,8 @@ from pathlib import Path
 import numpy as np
 
 import roughcut
+import speakers
+import transcript
 from common import NO_WINDOW, DavarError, format_time, parse_time, run, video_info
 from i18n import _
 from roughcut import is_filler_sound
@@ -203,13 +210,20 @@ def clip_name(n, headline):
 
 
 def make_clips(video, candidates, folder=None, kicker="", horizontal=0.5, subtitles=False, cover=False,
-               language="tr", words=None, parts=None, progress=None):
+               language="tr", words=None, parts=None, follow=False, progress=None):
     """Make each of `candidates` (dicts with start, end, lines and headline, as
     content.clip_candidates gives them) with make_clip, one after the other, into
     `folder` (next to the video by default) as "Clip 1 - <headline>.mp4" and so on.
     Returns the results of make_clip, each with its "n" and "headline"."""
     video = Path(video)
     target = Path(folder) if folder else video.parent
+    turns = None
+    if follow:  # who speaks when is found once for all the clips
+        if not words:
+            raise DavarError(_("run Transcribe first; following the speaker needs the transcript."))
+        if progress:
+            progress(0, _("Listening for who speaks when"))
+        turns = speakers.who_speaks(video, words, 2, language)
     made = []
     for n, clip in enumerate(candidates, 1):
         def step(percent, text, n=n):
@@ -219,7 +233,7 @@ def make_clips(video, candidates, folder=None, kicker="", horizontal=0.5, subtit
         result = make_clip(video, clip["start"], clip["end"], output=target / clip_name(clip.get("n", n), clip["headline"]),
                            kicker=kicker, headline=clip.get("lines") or [clip["headline"]], horizontal=horizontal,
                            subtitles=subtitles, cover=cover, language=language, words=words, parts=parts,
-                           progress=step)
+                           follow=follow, turns=turns, progress=step)
         made.append({**result, "n": clip.get("n", n), "headline": clip["headline"]})
     return made
 
@@ -252,8 +266,117 @@ def snap_range(video, start, end, length):
     return new_start, new_end, abs(new_start - start) > 0.02 or abs(new_end - end) > 0.02
 
 
+# Following the speaker. Whoever speaks moves more than whoever listens (the mouth, the head,
+# the hands), so the place of each speaker is where the picture moves more during their turns
+# than during the other's.
+MOTION_RATE, MOTION_WIDTH = 5, 192  # frames per second and width in pixels the picture is watched at
+WATCHED = 180.0  # seconds of the video watched around a clip
+WATCHED_MORE = 4  # further stretches of 60 s across the video, when that is not enough
+SURE_PLACE = 1.2  # how far the place of a speaker must stand out of the rest of the picture
+FEWEST_FRAMES = 40  # watched frames of each speaker's turns
+CUT_BEFORE = 0.25  # seconds before a turn begins that the frame cuts to the new speaker
+SHORTEST_SHOT = 1.5  # seconds; a shot at the start or end of a clip shorter than this is not made
+
+
+def watch_motion(video, start, duration, info):
+    """How much the picture moves in each column, between frames watched MOTION_RATE times a
+    second: (times in seconds of the video, array of shape (frames, MOTION_WIDTH))."""
+    height = max(round(info["height"] * MOTION_WIDTH / info["width"] / 2) * 2, 2)
+    raw = run(["ffmpeg", "-v", "error", "-ss", f"{max(start, 0):.3f}", "-t", f"{duration:.3f}", "-i", str(video),
+               "-vf", f"fps={MOTION_RATE},scale={MOTION_WIDTH}:{height},format=gray", "-f", "rawvideo", "-"])
+    frames = np.frombuffer(raw, np.uint8)[:len(raw) // (MOTION_WIDTH * height) * MOTION_WIDTH * height]
+    frames = frames.reshape(-1, height, MOTION_WIDTH).astype(np.int16)
+    if len(frames) < 2:
+        return np.zeros(0), np.zeros((0, MOTION_WIDTH))
+    columns = np.abs(frames[1:] - frames[:-1]).mean(1)
+    times = max(start, 0) + (np.arange(1, len(frames)) + 0.5) / MOTION_RATE
+    return times, columns
+
+
+def speaker_places(turns, times, columns):
+    """Where the two speakers of `turns` ((start, end, speaker), speakers 0 and 1) sit, from the
+    motion of the picture (see watch_motion): {speaker: centre as a share of the width, 0 left
+    to 1 right}, or None when the picture does not tell."""
+    who = np.full(len(times), -1)
+    for start, end, speaker in turns:  # the first half second of a turn may still show the other
+        who[(times >= start + 0.5) & (times < end)] = speaker
+    if len(times) == 0 or min((who == 0).sum(), (who == 1).sum()) < FEWEST_FRAMES:
+        return None
+    contrast = columns[who == 0].mean(0) - columns[who == 1].mean(0)
+    smooth = max(len(contrast) // 12, 1)
+    contrast = np.convolve(contrast, np.ones(smooth) / smooth, "same")
+    spread = contrast.std()
+    if spread == 0 or min(contrast.max(), -contrast.min()) < SURE_PLACE * spread:
+        return None
+    width = len(contrast)
+    places = {0: (contrast.argmax() + 0.5) / width, 1: (contrast.argmin() + 0.5) / width}
+    if abs(places[0] - places[1]) < 0.25:  # two people side by side are further apart
+        return None
+    return places
+
+
+def find_places(video, turns, start, end, info):
+    """speaker_places from the picture around the range [start, end] of the video, and when that is
+    not enough, from stretches across the whole video too. None when the picture does not tell."""
+    length = info["duration"]
+    first = max(min((start + end) / 2 - WATCHED / 2, length - WATCHED), 0)
+    times, columns = watch_motion(video, first, min(WATCHED, length), info)
+    places = speaker_places(turns, times, columns)
+    if places is None and length > WATCHED * 2:
+        more = [watch_motion(video, at, 60.0, info)
+                for at in np.linspace(0, length - 60, WATCHED_MORE + 2)[1:-1]]
+        places = speaker_places(turns, np.concatenate([times] + [m[0] for m in more]),
+                                np.concatenate([columns] + [m[1] for m in more]))
+    return places
+
+
+def clip_moment(moment, start, pieces, fps):
+    """A moment of the video (seconds) on the clip that starts at `start`; with the Rough Cut's
+    `pieces` (see kept_in_range), a moment that was cut away goes to the start of the next piece."""
+    if pieces is None:
+        return moment - start
+    frame, before = (moment - start) * fps, 0
+    for a, b in pieces:
+        if frame < b:
+            return (before + max(frame - a, 0)) / fps
+        before += b - a
+    return before / fps
+
+
+def follow_shots(turns, places, start, end, pieces=None, fps=30.0):
+    """The shots of a clip that follows whoever speaks: [(from second of the clip, speaker), ...].
+    The frame cuts to the new speaker a moment before each turn; a short shot at either end of the
+    clip is not made, and a speaker whose place is not known is not cut to."""
+    length = clip_moment(end, start, pieces, fps)
+    shots = []
+    for turn_start, turn_end, speaker in turns:
+        if speaker not in places or turn_end <= start or turn_start >= end:
+            continue
+        if shots and shots[-1][1] == speaker:
+            continue
+        at = max(clip_moment(turn_start - CUT_BEFORE, start, pieces, fps), 0.0) if shots else 0.0
+        if shots and at - shots[-1][0] < SHORTEST_SHOT:  # the shot before is too short: this one takes its place
+            at = shots.pop()[0]
+            if shots and shots[-1][1] == speaker:
+                continue
+        shots.append((at, speaker))
+    if len(shots) > 1 and length - shots[-1][0] < SHORTEST_SHOT:
+        shots.pop()
+    return shots
+
+
+def crop_x_expression(shots, xs):
+    """The x of the crop filter for `shots` (see follow_shots), with `xs` the x of each speaker:
+    a number for one shot, otherwise a formula of the time t."""
+    text = str(xs[shots[-1][1]])
+    for n in range(len(shots) - 2, -1, -1):
+        text = f"if(lt(t,{shots[n + 1][0]:.3f}),{xs[shots[n][1]]},{text})"
+    return text
+
+
 def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal=0.5,
-              subtitles=False, cover=False, language="tr", words=None, parts=None, progress=None):
+              subtitles=False, cover=False, language="tr", words=None, parts=None, follow=False,
+              turns=None, progress=None):
     """Cut the range as a vertical video; returns information about the output file.
 
     `horizontal`: where the speaker's frame is taken from, 0 (left) to 1 (right).
@@ -261,6 +384,9 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
     not transcribed again for the subtitles.
     `parts`: the parts of the Rough Cut timeline (frames of the video); when given, only
     what they keep of the range goes into the clip.
+    `follow`: the frame follows whichever of two people speaks (see find_places); `horizontal`
+    is used when the picture does not tell where they sit. `turns` are who speaks when, as
+    speakers.who_speaks gives them; without them they are found from `words`.
     The start and the end move to the nearest pause (see roughcut.snap_to_pause).
     """
     def step(percent, text):
@@ -309,6 +435,20 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
     crop_h = min(h, int(crop_w * 4 / 3)) // 2 * 2
     crop_x = int((w - crop_w) * min(max(horizontal, 0.0), 1.0))
     crop_y = (h - crop_h) // 2
+    shots, places = [], None
+    if follow:
+        if turns is None:
+            if not words:
+                raise DavarError(_("run Transcribe first; following the speaker needs the transcript."))
+            step(4, _("Listening for who speaks when"))
+            turns = speakers.who_speaks(video, words, 2, language)
+        step(5, _("Watching where the speakers sit"))
+        places = find_places(video, turns, start, end, info)
+        if places:
+            xs = {who: min(max(int(place * w - crop_w / 2), 0), w - crop_w) for who, place in places.items()}
+            shots = follow_shots(turns, places, start, end, pieces, fps)
+            if shots:
+                crop_x = f"'{crop_x_expression(shots, xs)}'"
 
     with tempfile.TemporaryDirectory(prefix="davar_") as temp:
         temp = Path(temp)
@@ -398,6 +538,7 @@ def make_clip(video, start, end, output=None, kicker="", headline=(), horizontal
     step(100, _("Finished"))
     return {"output": output, "duration": total, "start": start, "end": end, "moved": moved,
             "subtitle_lines": subtitle_lines, "subtitles": subtitles, "cover": cover,
+            "follow": follow, "shots": len(shots), "places": places,
             "cuts": len(pieces) - 1 + (pieces[0][0] > 0) + (pieces[-1][1] < round(span * fps)) if pieces else 0,
             "shorter": span - duration}
 
@@ -409,6 +550,9 @@ def report(r):
         _("Video    : {width}x{height}, {seconds:.1f} s").format(width=WIDTH, height=HEIGHT, seconds=r["duration"])
         + ("  " + _("(including the intro cover)") if r["cover"] else ""),
     ]
+    if r.get("follow"):
+        lines.append(_("Framing  : follows whoever speaks, {n} shots").format(n=r["shots"]) if r.get("shots")
+                     else _("Framing  : the picture did not tell where the speakers sit; the fixed framing was used"))
     if r.get("cuts"):
         lines.append(_("Cuts     : the Rough Cut's {n} cuts applied, {seconds:.1f} s shorter").format(
             n=r["cuts"], seconds=r["shorter"]))
@@ -444,6 +588,8 @@ def main():
                    help="headline line (give twice for two lines)")
     p.add_argument("--horizontal", type=float, default=0.5,
                    help="where the frame is taken from: 0 left, 0.5 centre, 1 right (default 0.5)")
+    p.add_argument("--follow", action="store_true",
+                   help="follow whichever of two people speaks (needs the transcript of Transcribe)")
     p.add_argument("--subtitles", action="store_true", help="add automatic subtitles from the speech")
     p.add_argument("--cover", action="store_true", help="add a 2.5 second intro cover")
     p.add_argument("--language", default="tr", help="spoken language code (default tr)")
@@ -451,9 +597,11 @@ def main():
                    help="output file (default: <name>_vertical.mp4 next to the video)")
     a = p.parse_args()
     try:
+        saved = transcript.load(a.video) if a.follow or a.subtitles else None
         result = make_clip(a.video, a.start, a.end, output=a.output, kicker=a.kicker,
                            headline=a.headline, horizontal=a.horizontal, subtitles=a.subtitles,
-                           cover=a.cover, language=a.language)
+                           cover=a.cover, language=a.language, follow=a.follow,
+                           words=saved["words"] if saved else None)
     except DavarError as e:
         sys.exit(_("ERROR: {message}").format(message=e))
     print(report(result))

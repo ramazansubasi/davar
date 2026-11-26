@@ -1476,7 +1476,7 @@ class SocialClipsPage(Page):
                      "video. Puts the speaker's frame over a blurred background and adds a headline, "
                      "subtitles and an intro cover.")
     key = "social_clips"
-    general = ("kicker", "subtitles", "cover", "use_cut")
+    general = ("kicker", "subtitles", "cover", "use_cut", "follow")
     per_video = ("start", "end", "horizontal", "headline1", "headline2")
 
     def build(self, parent):
@@ -1489,6 +1489,7 @@ class SocialClipsPage(Page):
         self.subtitles = tk.BooleanVar(value=True)
         self.cover = tk.BooleanVar(value=False)
         self.use_cut = tk.BooleanVar(value=True)
+        self.follow = tk.BooleanVar(value=False)
         self.candidates, self.ticks = [], []  # Content Analysis's clips, with their ticks
 
         g = self.card(parent, None, _("Candidates of Content Analysis"),
@@ -1519,6 +1520,13 @@ class SocialClipsPage(Page):
         ttk.Scale(box, variable=self.horizontal, from_=0, to=100, length=220).pack(side="left", padx=8)
         ttk.Label(box, text=_("right") + "     " + _("move it if the speaker is not in the centre"),
                   style="CardMuted.TLabel").pack(side="left")
+        ttk.Checkbutton(g, text=_("Follow whoever speaks"), variable=self.follow, style="Card.TCheckbutton").grid(
+            row=2, column=0, columnspan=4, sticky="w", pady=(12, 0))
+        ttk.Label(g, text=_("For two people filmed together in one wide shot: the frame cuts to whoever is speaking. "
+                            "Who speaks when is taken from the transcript, where they sit from the picture; the "
+                            "slider above is used when the picture does not tell."),
+                  style="CardMuted.TLabel", wraplength=640, justify="left").grid(
+            row=3, column=0, columnspan=4, sticky="w", padx=(24, 0))
 
         g = self.card(parent, None, _("Texts"), _("A line left empty is not written."))
         g.columnconfigure(1, weight=1)
@@ -1535,7 +1543,7 @@ class SocialClipsPage(Page):
                        _("Puts a 2.5 second cover showing the kicker and headline at the start."))
         self.check_row(g, 2, self.use_cut, _("Apply the Rough Cut's cuts"),
                        _("Leaves out the silences and hesitations it cut; the times above stay those of the video."))
-        for variable in (self.start, self.end, self.kicker, self.headline1, self.headline2, self.cover):
+        for variable in (self.start, self.end, self.kicker, self.headline1, self.headline2, self.cover, self.follow):
             variable.trace_add("write", lambda *_args: self.refresh_state())
 
     def _ticked(self):
@@ -1591,6 +1599,9 @@ class SocialClipsPage(Page):
         ticked = self._ticked()
         self.ticked_status.configure(text=_("{n} ticked: Start makes them").format(n=len(ticked)) if ticked
                                      else "")
+        if (self.follow.get() and self.app.video.get().strip() and self.app.video_path().is_file()
+                and not self.app.transcript()):
+            return _("Run Transcribe first")
         if ticked:
             return ""
         if not self.start.get().strip() or not self.end.get().strip():
@@ -1607,7 +1618,7 @@ class SocialClipsPage(Page):
             return dict(
                 video=video, folder=self.app.output_folder(), candidates=self._ticked(), kicker=self.kicker.get(),
                 horizontal=float(self.horizontal.get()) / 100, subtitles=self.subtitles.get(),
-                cover=self.cover.get(), words=saved.get("words"),
+                cover=self.cover.get(), words=saved.get("words"), follow=self.follow.get(),
                 language=saved.get("language", i18n.load_settings().get("speech_language", "tr")),
                 parts=self._cut_parts(video) if self.use_cut.get() else None)
         return dict(
@@ -1615,6 +1626,7 @@ class SocialClipsPage(Page):
             start=self.start.get(), end=self.end.get(), kicker=self.kicker.get(),
             headline=[self.headline1.get(), self.headline2.get()], horizontal=float(self.horizontal.get()) / 100,
             subtitles=self.subtitles.get(), cover=self.cover.get(), words=saved.get("words"),
+            follow=self.follow.get(),
             language=saved.get("language", i18n.load_settings().get("speech_language", "tr")),
             parts=self._cut_parts(video) if self.use_cut.get() else None,
         )
