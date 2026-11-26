@@ -8,13 +8,17 @@ speak?"; the moment a turn changes is only known to within a few seconds.
 How: the voice colour (cepstrum) of every three seconds of speech is measured, the
 measurements are gathered into as many groups as there are speakers, and the result is
 smoothed in time, since people speak in turns and not in fragments.
+
+Two people with a microphone each, recorded on the two channels of the camera, are told
+apart surer and more exactly: whoever speaks is much louder on their own microphone than
+on the other's, so each word of the transcript is given to the louder one (see who_speaks).
 """
 
 import numpy as np
 
-from common import SAMPLE_RATE, DavarError
+from common import SAMPLE_RATE, WINDOW, DavarError, video_info
 from i18n import _
-from roughcut import is_filler_sound
+from roughcut import audio_levels, auto_threshold, is_filler_sound
 
 FRAME, HOP = 400, 160  # 25 ms frames every 10 ms
 BANDS, COEFFICIENTS = 40, 20
@@ -24,6 +28,10 @@ SWITCH_COST = 12.0  # how unwilling the smoothing is to change speaker between t
 SURE_TURN = 8.0  # a turn this long is trusted when the voices are learnt a second time
 SHORTEST_TURN = 4.0  # shorter ones are slips or interjections; they join a neighbour
 FEWEST_MEASUREMENTS = 12  # per speaker; with less speech the voices cannot be told apart
+APART = 6.0  # dB; one channel this much louder than the other is the microphone of whoever speaks
+APART_SHARE = 0.6  # of the speech is that much louder on one of them when the two are two microphones
+EACH_SHARE = 0.05  # and each of them is the louder one in at least this much of it
+WORD_MARGIN = 4.0  # dB; a word is given to a microphone this much louder than the other
 
 
 def voice_colour(samples):
@@ -131,11 +139,12 @@ def _turns(spans, path):
 
 
 def join_short_turns(turns, shortest=SHORTEST_TURN):
-    """Give every turn shorter than `shortest` to its longer neighbour. Turns are (start, end, speaker)."""
+    """Give every turn shorter than `shortest` to its longer neighbour, the shortest first, so
+    that a slip inside a short turn does not take the turn with it. Turns are (start, end, speaker)."""
     turns = [list(t[:3]) for t in turns]
     while len(turns) > 1:
-        n = next((i for i, (start, end, _who) in enumerate(turns) if end - start < shortest), None)
-        if n is None:
+        n = min(range(len(turns)), key=lambda i: turns[i][1] - turns[i][0])
+        if turns[n][1] - turns[n][0] >= shortest:
             break
         beside = [m for m in (n - 1, n + 1) if 0 <= m < len(turns)]
         into = max(beside, key=lambda m: turns[m][1] - turns[m][0])
@@ -170,6 +179,69 @@ def find_turns(samples, words, count, language="tr"):
         if not all((path[sure] == g).sum() >= 5 for g in range(count)):
             break
         path = _smooth(vectors, spans, np.array([vectors[sure][path[sure] == g].mean(0) for g in range(count)]))
-    turns = join_short_turns(_turns(spans, path))
+    return _numbered(join_short_turns(_turns(spans, path)))
+
+
+def _numbered(turns):
+    """Number the speakers of (start, end, speaker) turns from 0 in the order they first speak."""
     order = list(dict.fromkeys(who for _start, _end, who in turns))
     return [(float(start), float(end), order.index(who)) for start, end, who in turns]
+
+
+def own_microphones(levels):
+    """Whether two channels (their levels in dB for every 10 ms, shape (n, 2)) are two
+    microphones, each close to one of two speakers: most of the speech is much louder on one
+    of them, and each is the louder one some of the time. Not so for the same sound on both
+    channels, a stereo microphone, or two microphones of which only one is used."""
+    if levels is None or len(levels) == 0:
+        return False
+    loudest = np.max(levels, axis=1)
+    heard = loudest > auto_threshold(loudest)[0]
+    if heard.sum() < 100:
+        return False
+    apart = levels[heard, 0] - levels[heard, 1]
+    return bool((np.abs(apart) >= APART).mean() >= APART_SHARE
+                and min((apart >= APART).mean(), (apart <= -APART).mean()) >= EACH_SHARE)
+
+
+def turns_by_microphone(levels, words):
+    """Who speaks when, read from two microphones (see own_microphones): each word goes to the
+    microphone on which it is louder, and the turns are smoothed as find_turns smooths them.
+    A word heard about as loud on both stays with the speaker before it."""
+    loudest = np.max(levels, axis=1)
+    heard = loudest > auto_threshold(loudest)[0]
+    apart = levels[:, 0] - levels[:, 1]
+    turns = []
+    for _text, start, end in words:
+        first = int(start / WINDOW)
+        last = max(int(end / WINDOW), first + 1)
+        loud = heard[first:last]
+        who = None
+        if loud.any():
+            middle = float(np.median(apart[first:last][loud]))
+            who = 0 if middle >= WORD_MARGIN else 1 if middle <= -WORD_MARGIN else None
+        if who is None or (turns and turns[-1][2] == who):
+            if turns:
+                turns[-1][1] = end
+        else:
+            turns.append([start, end, who])
+    if not turns:
+        raise DavarError(_("there is too little speech to tell the speakers apart."))
+    return _numbered(join_short_turns(turns))
+
+
+def who_speaks(video, words, count, language="tr", samples=None, microphones=None):
+    """Who speaks when, as find_turns gives it. Two people with a microphone each on the two
+    channels of the recording are told apart by their microphones, word by word; otherwise
+    by their voices. `samples` and `microphones` are the audio as audio_levels gives it, when
+    it has been read already; without `samples` the audio of `video` is read here."""
+    if not words:
+        raise DavarError(_("run Transcribe first; the speakers are told apart with the help of the transcript."))
+    if samples is None:
+        if count == 2 and video_info(video)["audio_channels"] == 2:
+            samples, _db, microphones = audio_levels(video, microphones=True)
+        else:
+            samples, _db = audio_levels(video)
+    if count == 2 and own_microphones(microphones):
+        return turns_by_microphone(microphones, words)
+    return find_turns(samples, words, count, language)

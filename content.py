@@ -272,10 +272,8 @@ def prepare(video, words, folder=None, language="tr", programme="", channel="", 
     parts, on_timeline = timeline_of(video, folder, info)
     turns = []
     if len(people) >= 2:  # who says what helps the chapters and the summary
-        step(10, _("Extracting audio"))
-        samples, _levels = roughcut.audio_levels(video)
-        step(70, _("Listening for who speaks when"))
-        turns = speakers.find_turns(samples, words, len(people), language)
+        step(10, _("Listening for who speaks when"))
+        turns = speakers.who_speaks(video, words, len(people), language)
     step(90, _("Writing the prompt"))
     lines = transcript_lines(words, parts, fps, turns, [name for name, _title in people], language)
     length = sum(end - start for start, end in parts) / fps

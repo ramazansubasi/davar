@@ -47,6 +47,21 @@ def conversation(plan):
     return np.concatenate(samples), words
 
 
+def microphones(plan):
+    """Levels of two channels and words for a list of (microphone, start, end): words of half a
+    second, -20 dB on the microphone of the one speaking and -32 dB on the other, -60 dB between."""
+    levels = np.full((int(plan[-1][2] / 0.01) + 100, 2), -60.0, np.float32)
+    words = []
+    for mic, start, end in plan:
+        moment = start
+        while moment + 0.4 <= end + 1e-9:
+            first, last = int(round(moment / 0.01)), int(round((moment + 0.4) / 0.01))
+            levels[first:last, mic], levels[first:last, 1 - mic] = -20.0, -32.0
+            words.append(["word", moment, moment + 0.4])
+            moment += 0.5
+    return levels, words
+
+
 class TellingApart(unittest.TestCase):
     def test_two_voices_are_followed_through_their_turns(self):
         plan = [(0, 20), (1, 45), (0, 12), (1, 30), (0, 25), (1, 16)]
@@ -73,10 +88,58 @@ class TellingApart(unittest.TestCase):
         with self.assertRaises(DavarError):
             speakers.find_turns(samples, [], 2)
 
+    def test_two_microphones_tell_the_speakers_apart_word_by_word(self):
+        # speaker A on channel 1 from 0 to 20.3 s, B on channel 0 to 60.3 s, a "hı hı" of A at 40 s,
+        # then A again; each is heard 12 dB lower on the other's microphone
+        plan = [(1, 0, 20), (0, 20.5, 40), (1, 40, 40.6), (0, 40.8, 60), (1, 60.5, 90)]
+        levels, words = microphones(plan)
+        self.assertTrue(speakers.own_microphones(levels))
+        turns = speakers.turns_by_microphone(levels, words)
+        self.assertEqual([who for _s, _e, who in turns], [0, 1, 0], "numbered in the order they first speak")
+        self.assertAlmostEqual(turns[1][0], 20.5, delta=0.01, msg="a turn starts with its first word")
+        self.assertAlmostEqual(turns[2][0], 60.5, delta=0.01)
+        self.assertEqual(speakers.who_speaks(None, words, 2, samples=np.zeros(10, np.float32),
+                                             microphones=levels), turns)
+
+    def test_the_same_sound_on_both_channels_is_not_two_microphones(self):
+        levels, _words = microphones([(0, 0, 30), (1, 30.5, 60)])
+        self.assertFalse(speakers.own_microphones(np.repeat(levels.max(1, keepdims=True), 2, axis=1)))
+        self.assertFalse(speakers.own_microphones(None))
+
+    def test_one_microphone_used_alone_is_not_two(self):
+        levels, _words = microphones([(0, 0, 60)])
+        self.assertFalse(speakers.own_microphones(levels))
+
+    def test_the_two_channels_are_read_apart_and_mixed(self):
+        left = (np.sin(np.arange(SAMPLE_RATE) / 5) * 16000).astype(np.int16)  # a second, on the left only
+        pcm = np.zeros((SAMPLE_RATE + 37, 2), np.int16)  # and a little more than whole 10 ms
+        pcm[:SAMPLE_RATE, 0] = left
+        asked = []
+        real = roughcut.run
+        roughcut.run = lambda command: asked.append(command) or pcm.tobytes()
+        try:
+            samples, db, levels = roughcut.audio_levels("talk.mp4", microphones=True)
+        finally:
+            roughcut.run = real
+        self.assertIn("pan=stereo|c0=c0|c1=c1", asked[0])
+        self.assertEqual(levels.shape, (100, 2))
+        self.assertAlmostEqual(float(levels[:, 0].mean()), -9.2, delta=0.3)
+        self.assertLess(float(levels[:, 1].max()), -150)
+        self.assertTrue(np.allclose(samples[:SAMPLE_RATE], left / 2 / 32768.0))
+        self.assertAlmostEqual(float(db.mean()), -15.2, delta=0.3, msg="the mix is half of the left channel")
+
+    def test_without_two_microphones_the_voices_tell(self):
+        samples, words = conversation([(0, 20), (1, 45), (0, 12), (1, 30)])
+        self.assertEqual(speakers.who_speaks(None, words, 2, samples=samples),
+                         speakers.find_turns(samples, words, 2))
+
     def test_a_short_turn_joins_its_longer_neighbour(self):
         turns = [(0, 30, 0), (30, 32, 1), (32, 50, 0), (50, 80, 1), (80, 83, 0)]
         self.assertEqual(speakers.join_short_turns(turns), [(0, 50, 0), (50, 83, 1)])
         self.assertEqual(speakers.join_short_turns([(0, 2, 0)]), [(0, 2, 0)], "a lone turn stays")
+        # a word of the host heard louder on the guest's microphone does not hand the guest the host's turn
+        self.assertEqual(speakers.join_short_turns([(0, 338.6, 1), (342.8, 345.8, 0), (346.1, 346.5, 1),
+                                                    (346.5, 367, 0)]), [(0, 338.6, 1), (342.8, 367, 0)])
 
 
 class Placing(unittest.TestCase):

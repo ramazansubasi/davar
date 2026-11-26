@@ -25,20 +25,35 @@ from common import (SAMPLE_RATE, WINDOW, DavarError, format_time, parse_ranges, 
 from i18n import _
 
 
-def audio_levels(path, start=None, duration=None):
+def audio_levels(path, start=None, duration=None, microphones=False):
     """Decode the audio to mono and return (samples, level in dB for every 10 ms).
-    With `start` and `duration` (seconds) only that range is read."""
+    With `start` and `duration` (seconds) only that range is read.
+    With `microphones` (for audio of two channels) the two channels are read apart, the samples
+    are their mix, and a third item is returned: the level in dB of each channel for every
+    10 ms, shape (n, 2). Two microphones on the two channels of a camera tell who speaks."""
     where = (["-ss", f"{start:.3f}"] if start is not None else []) + (
         ["-t", f"{duration:.3f}"] if duration is not None else [])
     raw = run(["ffmpeg", "-v", "error", *where, "-i", str(path), "-vn",
-               "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "s16le", "-"])
-    samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+               *(["-af", "pan=stereo|c0=c0|c1=c1"] if microphones else ["-ac", "1"]),
+               "-ar", str(SAMPLE_RATE), "-f", "s16le", "-"])
     step = int(SAMPLE_RATE * WINDOW)
+    pcm = np.frombuffer(raw, dtype=np.int16)
+    if microphones:
+        pcm = pcm[: len(pcm) // 2 * 2].reshape(-1, 2)
+        levels = np.empty((len(pcm) // step, 2), np.float32)
+        for first in range(0, len(levels), 100000):  # in pieces, to spare memory
+            last = min(first + 100000, len(levels))
+            piece = pcm[first * step:last * step].astype(np.float32).reshape(-1, step, 2) / 32768.0
+            levels[first:first + len(piece)] = 20 * np.log10(np.sqrt(np.mean(piece ** 2, axis=1)) + 1e-10)
+        samples = pcm.mean(axis=1, dtype=np.float32) / 32768.0
+    else:
+        samples = pcm.astype(np.float32) / 32768.0
     n = len(samples) // step
     if n == 0:
         raise DavarError(_("the audio could not be read."))
     rms = np.sqrt(np.mean(samples[: n * step].reshape(n, step) ** 2, axis=1))
-    return samples, 20 * np.log10(rms + 1e-10)
+    db = 20 * np.log10(rms + 1e-10)
+    return (samples, db, levels) if microphones else (samples, db)
 
 
 # --- finding "uh / um" ---------------------------------------------------------
@@ -905,7 +920,11 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
                                "e.g. 16:40.5; three numbers such as 16:40:00 mean hours:minutes:seconds.").format(
                 time=format_time(moment), length=format_time(info["duration"])))
     step(10, _("Extracting audio"))
-    samples, db = audio_levels(video)
+    microphones = None
+    if info["audio_channels"] == 2:  # perhaps a microphone on each channel; they tell who speaks
+        samples, db, microphones = audio_levels(video, microphones=True)
+    else:
+        samples, db = audio_levels(video)
     auto, floor, speech = auto_threshold(db)
     used = threshold if threshold is not None else auto
     # the times given by hand move to the nearest pause, so no word is clipped
@@ -944,7 +963,7 @@ def analyze(video, silence=True, hesitations=True, min_silence=0.5, pad_before=0
     step(100, _("Analysis finished"))
     return {
         "video": video, "info": info, "fps": float(info["fps"]), "db": db, "samples": samples,
-        "floor": floor, "speech": speech, "threshold": used, "manual_threshold": threshold is not None,
+        "microphones": microphones, "floor": floor, "speech": speech, "threshold": used, "manual_threshold": threshold is not None,
         "min_silence": min_silence if silence else float("inf"),
         "pad_before": pad_before, "pad_after": pad_after, "candidates": candidates,
         "has_transcript": bool(words), "words": words, "language": language,
@@ -990,15 +1009,16 @@ def apply(state, output=None, review=False, close_up=None, places=(), speakers=2
     earlier = read_timeline(output, video, info)
     titles = [o for o in earlier["overlays"] if o["path"].is_file()] if earlier else []
     still = earlier["still"] if earlier and earlier["still"] and earlier["still"].is_file() else None
-    framed = None
+    framed, by_microphone = None, False
     if close_up:
+        import speakers as voices  # imported here: speakers itself uses this module
+        by_microphone = (len(places) or speakers) == 2 and voices.own_microphones(state.get("microphones"))
         turns = state.get("turns")
         if turns is None:
             if not state.get("words"):
                 raise DavarError(_("run Transcribe first; the speakers are told apart with the help of the transcript."))
-            import speakers as voices  # imported here: speakers itself uses this module
-            turns = voices.find_turns(state["samples"], state["words"], len(places) or speakers,
-                                      state.get("language", "tr"))
+            turns = voices.who_speaks(video, state["words"], len(places) or speakers, state.get("language", "tr"),
+                                      samples=state["samples"], microphones=state.get("microphones"))
         framed = framings(parts, fps, turns, places, close_up, info["width"], info["height"], every)
     checks = joins_to_check(cuts, state.get("words"), state["db"], state["speech"], fps, info["frames"],
                             state.get("language", "tr"))
@@ -1036,7 +1056,7 @@ def apply(state, output=None, review=False, close_up=None, places=(), speakers=2
         "threshold": state["threshold"], "manual_threshold": state["manual_threshold"],
         "cuts": cuts, "candidates": state["candidates"], "selected": selected,
         "removed": sum(end - start for start, end in cuts) / fps, "titles": len(titles),
-        "close_up": close_up, "every": every,
+        "close_up": close_up, "every": every, "by_microphone": by_microphone,
         "changes": sum(a != b for a, b in zip(framed, framed[1:])) if framed else 0,
         "close_share": (sum(end - start for (start, end), f in zip(parts, framed) if f != WIDE)
                         / sum(end - start for start, end in parts)) if framed else 0.0,
@@ -1103,6 +1123,8 @@ def report(r, detailed=True):
         lines.append(_("Framing     : changes {changes} times, at speaker changes and about every {every:.0f} s "
                        "in long answers; closer framing ({percent:.0f}%) {share:.0f}% of the time").format(
             changes=r["changes"], every=r["every"], percent=r["close_up"] * 100, share=r["close_share"] * 100))
+        if r.get("by_microphone"):
+            lines.append(_("Who speaks when was read from the two microphones, word by word."))
         lines.append(_("In Resolve, keep “Use sizing information” ticked when importing, or the "
                        "closer framings are lost."))
     if r["review"]:

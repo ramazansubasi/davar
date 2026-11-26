@@ -466,6 +466,8 @@ TRANSLATIONS = {
     "{timeline} on the timeline ({video} in the video)  «{word}»": "çizelgede {timeline} (videoda {video})  «{word}»",
     "Mark the joins to listen to": "Dinlenecek birleşimleri işaretle",
     "The same markers for Resolve: {path}": "Aynı işaretler Resolve için: {path}",
+    "Who speaks when was read from the two microphones, word by word.":
+        "Kimin ne zaman konuştuğu iki mikrofondan, kelime kelime okundu.",
     "In Resolve, right-click the timeline in the Media Pool and choose Timelines > Import > "
     "Timeline Markers from EDL.":
         "Resolve'da Media Pool'daki çizelgeye sağ tıklayıp Timelines > Import > "

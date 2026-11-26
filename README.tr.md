@@ -235,6 +235,8 @@ Ali Demir | Belediye Başkanı | sağ
 
 Sesler bilgisayarında, ek bir indirme olmadan ayırt edilir. Sesleri birbirinden belirgin biçimde farklı birkaç kişi için yapılmıştır; konuşma sırasının değiştiği an ancak birkaç saniye yaklaşıklıkla bilinir, ad bu yüzden konuşmacı başladıktan biraz sonra gelir.
 
+**İki mikrofon.** İki kişinin her biri, kameranın iki kanalından birine kaydedilen bir mikrofon taktığında, konuşan kendi mikrofonunda çok daha yüksek duyulur. Davar bunu kendiliğinden fark eder ve dökümdeki her kelimeyi daha yüksek duyulduğu mikrofona verir; böylece konuşma sırasının değiştiği an birkaç saniye değil, kelime kelime bilinir. Bu hem burada, hem **Konuşana yaklaş**'ta, hem de İçerik Analizi'nde kullanılır. İki programımızda kelimelerin 100'de 98'inde seslerle aynı konuşmacıyı buldu ve konuşmacı değişimlerini yerinde gösterdi; seslerin bir değişimi beş saniye erken koyduğu yer de buna dahil. Tek mikrofonda, iki kanalda aynı ses olduğunda ya da ikiden fazla kişide eskisi gibi seslere bakılır.
+
 ### Gündem KJ'leri
 
 Konuşulan soru ya da gündem için bir KJ: görüntünün altında beyaz bir panel, kırmızı sekmede program adı, büyük başlık, altında kırmızı bir satır (konuk için) ve sağda logonuz. İsim KJ'leri gibi soldan açılır, varsayılan olarak 8 saniye kalır.

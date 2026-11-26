@@ -752,8 +752,9 @@ class RoughCutPage(Page):
         state = roughcut.analyze(progress=progress, **settings["analysis"])
         if settings["close_up"] and state["words"]:  # done here, away from the window, as it takes a while
             progress(95, _("Listening for who speaks when"))
-            state["turns"] = speakers.find_turns(state["samples"], state["words"], settings["speakers"],
-                                                 state["language"])
+            state["turns"] = speakers.who_speaks(state["video"], state["words"], settings["speakers"],
+                                                 state["language"], samples=state["samples"],
+                                                 microphones=state.get("microphones"))
         return {"state": state, "settings": settings}
 
     def finish(self, result):

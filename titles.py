@@ -270,8 +270,7 @@ def place_on_timeline(video, people, items, folder=None, words=None, language="t
             raise DavarError(_("run Transcribe first, or give each name its time: Name | Title | 0:41"))
         if progress:
             progress(88, _("Listening for who speaks when"))
-        samples, _levels = roughcut.audio_levels(video)
-        turns = speakers.find_turns(samples, words, len(people), language)
+        turns = speakers.who_speaks(video, words, len(people), language)
     if progress:
         progress(96, _("Writing the timeline"))
     # titles of other kinds placed before (topic titles) stay; the names are placed anew

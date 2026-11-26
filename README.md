@@ -241,6 +241,8 @@ With **Place them on the timeline** ticked, Davar also puts each name on the tra
 
 The voices are told apart on your computer, with no extra download. It is made for a few people with clearly different voices; the moment a turn changes is known only to within a few seconds, which is why the name appears a little after the speaker starts.
 
+**Two microphones.** When two people each wear a microphone recorded on one of the two channels of the camera, whoever speaks is much louder on their own microphone. Davar notices this by itself and then gives each word of the transcript to the louder microphone, so a turn is known to the word instead of to a few seconds; it is used here, for **Move closer to the speaker** and for Content Analysis. On two of our programmes it found the same speaker as the voices for 98 in 100 words, and put the changes of speaker where they are: once where the voices had placed one five seconds too early. With one microphone, the same sound on both channels or more than two people, the voices are used as before.
+
 ### Topic titles
 
 A lower third for the question or the subject being talked about: a white panel along the bottom of the picture, the programme's name on a red tab, a large headline, a red line under it (for the guest) and your logo on the right. It opens from the left, like the name titles, and stays 8 seconds by default.
