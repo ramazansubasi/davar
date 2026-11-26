@@ -1,6 +1,7 @@
 """Tests the prompt for the YouTube texts and the reading of the AI chat's answer. No video,
 no ffmpeg and no AI are needed."""
 
+import json
 import sys
 import tempfile
 import unittest
@@ -90,6 +91,38 @@ class Answer(unittest.TestCase):
         self.assertEqual(content.video_moment(PARTS, 10.0, 5.0), 5.0)
         self.assertEqual(content.video_moment(PARTS, 10.0, 25.0), 35.0)
         self.assertEqual(content.video_moment(PARTS, 10.0, 99.0), 60.0, "past the end: the end")
+
+
+class ClipHeadlines(unittest.TestCase):
+    def test_the_lines_written_on_a_clip_are_read(self):
+        answer = content.parse_answer('{"clips": [{"start": "0:10", "end": "0:40", "headline": "Atalay", '
+                                      '"lines": ["“A VERY BIG", "SHAME”", "third"]}]}', 50.0)
+        self.assertEqual(answer["clips"][0]["lines"], ["“A VERY BIG", "SHAME”"], "two lines at most")
+
+    def test_without_lines_the_headline_is_split(self):
+        answer = content.parse_answer('{"clips": [{"start": "0:10", "end": "0:40", '
+                                      '"headline": "The football ground turned into a car park"}]}', 50.0)
+        self.assertEqual(answer["clips"][0]["lines"], ["The football ground", "turned into a car park"])
+        self.assertEqual(content.two_lines("Short one"), ["Short one"])
+        self.assertEqual(content.two_lines(""), [])
+
+    def test_the_candidates_are_given_in_the_video_s_times(self):
+        with tempfile.TemporaryDirectory() as folder:
+            video = Path(folder) / "talk.mp4"
+            saved = {"on_timeline": True, "clips": [{"start": 25.0, "end": 35.0, "headline": "Later words",
+                                                     "lines": ["LATER", "WORDS"], "why": "Clear."}]}
+            (Path(folder) / "talk_content.json").write_text(json.dumps(saved), encoding="utf-8")
+            real = content.video_info, content.timeline_of
+            content.video_info = lambda path: {"fps": 10.0}
+            content.timeline_of = lambda path, folder=None, info=None: (PARTS, True)
+            try:
+                found = content.clip_candidates(video)
+            finally:
+                content.video_info, content.timeline_of = real
+            self.assertEqual(found, [{"start": 35.0, "end": 45.0, "headline": "Later words",
+                                      "lines": ["LATER", "WORDS"], "why": "Clear."}],
+                             "20 s of the timeline are kept before the cut of 10 s")
+            self.assertEqual(content.clip_candidates(Path(folder) / "other.mp4"), [], "no Content Analysis yet")
 
 
 if __name__ == "__main__":

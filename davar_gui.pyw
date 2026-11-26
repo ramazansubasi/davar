@@ -1489,6 +1489,20 @@ class SocialClipsPage(Page):
         self.subtitles = tk.BooleanVar(value=True)
         self.cover = tk.BooleanVar(value=False)
         self.use_cut = tk.BooleanVar(value=True)
+        self.candidates, self.ticks = [], []  # Content Analysis's clips, with their ticks
+
+        g = self.card(parent, None, _("Candidates of Content Analysis"),
+                      _("The clips Content Analysis suggests, with their ranges fitted to whole sentences. "
+                        "Tick the ones to make: Start then makes them one after the other, with the texts the AI "
+                        "wrote and the extras below, as “Clip 1 - …”. Fill in puts one in the boxes below, "
+                        "to change it and make it alone."))
+        row = ttk.Frame(g, style="Card.TFrame")
+        row.pack(anchor="w", pady=(8, 0))
+        ttk.Button(row, text=_("Take the candidates"), command=self._take_candidates).pack(side="left")
+        self.ticked_status = ttk.Label(row, text="", style="CardMuted.TLabel")
+        self.ticked_status.pack(side="left", padx=(12, 0))
+        self.candidate_rows = ttk.Frame(g, style="Card.TFrame")
+        self.candidate_rows.pack(fill="x", pady=(4, 0))
 
         g = self.card(parent, None, _("Range and framing"))
         ttk.Label(g, text=_("From"), style="Card.TLabel").grid(row=0, column=0, sticky="w", pady=(8, 0))
@@ -1524,7 +1538,61 @@ class SocialClipsPage(Page):
         for variable in (self.start, self.end, self.kicker, self.headline1, self.headline2, self.cover):
             variable.trace_add("write", lambda *_args: self.refresh_state())
 
+    def _ticked(self):
+        return [dict(clip, n=n) for n, (clip, tick) in enumerate(zip(self.candidates, self.ticks), 1) if tick.get()]
+
+    def _take_candidates(self):
+        if not self.app.video.get().strip() or not self.app.video_path().is_file():
+            self.app.log(_("Choose a video at the top first"), error=True)
+            return
+        video = self.app.video_path()
+        try:
+            found = content.clip_candidates(video, self.app.output_folder())
+        except DavarError as e:
+            self.app.log(_("Failed: {message}").format(message=e), error=True)
+            return
+        if not found:
+            self.app.log(_("This video has no social clip candidates yet: run Content Analysis first."), error=True)
+            return
+        words = (self.app.transcript() or {}).get("words")
+        for clip in found:
+            clip["start"], clip["end"] = clips.fit_to_sentences(words, clip["start"], clip["end"])
+        for child in self.candidate_rows.winfo_children():
+            child.destroy()
+        self.candidates, self.ticks = found, []
+        for n, clip in enumerate(found, 1):
+            tick = tk.BooleanVar(value=True)
+            tick.trace_add("write", lambda *_args: self.refresh_state())
+            self.ticks.append(tick)
+            line = ttk.Frame(self.candidate_rows, style="Card.TFrame")
+            line.pack(fill="x", pady=(6, 0))
+            ttk.Checkbutton(line, variable=tick, style="Card.TCheckbutton",
+                            text=f"{n}. {format_time(clip['start'])} - {format_time(clip['end'])}  "
+                                 f"({clip['end'] - clip['start']:.0f} {_('s')})  {' '.join(clip['lines'])}"
+                            ).pack(side="left")
+            ttk.Button(line, text=_("Fill in"), command=lambda clip=clip: self._fill_in(clip)).pack(side="right")
+            if clip["why"]:
+                ttk.Label(self.candidate_rows, text=clip["why"], style="CardMuted.TLabel", wraplength=640,
+                          justify="left").pack(anchor="w", padx=(24, 0))
+        self.app.log(_("{n} social clip candidates taken from Content Analysis; their ranges are fitted to "
+                       "whole sentences.").format(n=len(found)))
+        self.refresh_state()
+
+    def _fill_in(self, clip):
+        self.start.set(format_time(clip["start"]))
+        self.end.set(format_time(clip["end"]))
+        lines = list(clip["lines"]) + ["", ""]
+        self.headline1.set(lines[0])
+        self.headline2.set(lines[1])
+        for tick in self.ticks:  # the boxes are made now, not the ticked candidates
+            tick.set(False)
+
     def missing(self):
+        ticked = self._ticked()
+        self.ticked_status.configure(text=_("{n} ticked: Start makes them").format(n=len(ticked)) if ticked
+                                     else "")
+        if ticked:
+            return ""
         if not self.start.get().strip() or not self.end.get().strip():
             return _("Write the start and end time")
         if self.cover.get() and not (self.kicker.get().strip() or self.headline1.get().strip()
@@ -1535,6 +1603,13 @@ class SocialClipsPage(Page):
     def read_settings(self):
         video = self.app.video_path()
         saved = self.app.transcript() or {}
+        if self._ticked():
+            return dict(
+                video=video, folder=self.app.output_folder(), candidates=self._ticked(), kicker=self.kicker.get(),
+                horizontal=float(self.horizontal.get()) / 100, subtitles=self.subtitles.get(),
+                cover=self.cover.get(), words=saved.get("words"),
+                language=saved.get("language", i18n.load_settings().get("speech_language", "tr")),
+                parts=self._cut_parts(video) if self.use_cut.get() else None)
         return dict(
             video=video, output=self.app.output_folder() / (video.stem + "_vertical.mp4"),
             start=self.start.get(), end=self.end.get(), kicker=self.kicker.get(),
@@ -1551,10 +1626,13 @@ class SocialClipsPage(Page):
         return known["parts"] if known else None
 
     def run(self, settings, progress):
+        if "candidates" in settings:
+            made = clips.make_clips(progress=progress, **settings)
+            return {"output": made[-1]["output"], "many": made}
         return clips.make_clip(progress=progress, **settings)
 
     def result_text(self, result):
-        return clips.report(result)
+        return clips.report_many(result["many"]) if "many" in result else clips.report(result)
 
 
 class Planned(Page):

@@ -259,6 +259,8 @@ Altyazı için İlk Analiz'in metni kullanılır; analiz yoksa seçilen aralık 
 
 **Kaba Kurgu'yu uygulama.** Videonun Kaba Kurgu çizelgesi varsa **Kaba Kurgu kesimlerini uygula** (varsayılan olarak açık), Kaba Kurgu'nun kestiği sessizlik, duraksama ve kırpılmış kısımları klipten de çıkarır; altyazı da buna uyar. Verdiğin zamanlar videodaki zamanlar olarak kalır; İçerik Analizi her sosyal klip adayı için bu zamanları yazar. Bir söyleşinin bir dakikalık aralığında 22 kesim klibi 11 saniye kısalttı. Her birleşimde ses 8 milisaniyede kısılıp açılır; böylece bir sesin ortasındaki kesim tıkırdamaz. Verdiğin başlangıç ve bitiş de Kaba Kurgu'daki kırpma zamanları gibi en yakın duraklamaya kaydırılır; kayıt penceresi kullanılan aralığı gösterir.
 
+**İçerik Analizi'nin adayları.** İçerik Analizi üç-beş sosyal klip önerir ve her biri için üstüne yazılacak manşeti de yazar: klipte söylenen en çarpıcı söz, tırnak içinde, büyük harfle, iki satır. **Adayları al** onları bu sayfada listeler. Yapay zekâ aralığı yaklaşık yirmi saniyelik döküm satırlarından seçtiği için aralıklar önce dökümün tam cümlelerine oturtulur: başlangıç cümlesinin başına (en çok dört saniye geri) ya da bir sonraki cümleye, bitiş cümlesinin sonuna (en çok altı saniye ileri) ya da bir önceki cümlenin sonuna kayar. Yapılacakları işaretleyip Başlat'a bas: her biri kendi manşetiyle ve bu sayfadaki üst satır, kadraj ve eklerle sırayla `Klip 1 - <manşet>.mp4` adıyla üretilir. **Doldur** ise bir adayı kutulara koyar; aralığını ya da manşetini değiştirip tek başına üretmek için.
+
 ## Sınırlar
 
 - Varsayılan olarak yalnızca en az 0,3 saniye süren, net duraksamalar kesilir. Daha kısaları, metin de aynı yerde duymuşsa öneri olarak gelir.

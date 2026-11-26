@@ -751,6 +751,30 @@ TRANSLATIONS = {
     "They cannot be corrected afterwards; read them first.":
         "Konuşmayı videoya gömer (İlk Analiz varsa onu kullanır). Sonradan düzeltilemez; önce oku.",
     "Add an intro cover": "Giriş kapağı ekle",
+    "Candidates of Content Analysis": "İçerik Analizi'nin adayları",
+    "The clips Content Analysis suggests, with their ranges fitted to whole sentences. "
+    "Tick the ones to make: Start then makes them one after the other, with the texts the AI "
+    "wrote and the extras below, as “Clip 1 - …”. Fill in puts one in the boxes below, "
+    "to change it and make it alone.":
+        "İçerik Analizi'nin önerdiği klipler; aralıkları tam cümlelere oturtulur. Yapılacakları işaretle: "
+        "Başlat onları yapay zekânın yazdığı manşetlerle ve aşağıdaki eklerle sırayla, “Klip 1 - …” adıyla "
+        "üretir. Doldur bir adayı aşağıdaki kutulara koyar; değiştirip tek başına üretmek için.",
+    "Take the candidates": "Adayları al",
+    "Fill in": "Doldur",
+    "{n} ticked: Start makes them": "{n} tane işaretli: Başlat bunları üretir",
+    "This video has no social clip candidates yet: run Content Analysis first.":
+        "Bu videonun henüz sosyal klip adayı yok: önce İçerik Analizi'ni çalıştır.",
+    "{n} social clip candidates taken from Content Analysis; their ranges are fitted to whole sentences.":
+        "İçerik Analizi'nden {n} sosyal klip adayı alındı; aralıkları tam cümlelere oturtuldu.",
+    "{path} could not be read; run Content Analysis again.":
+        "{path} okunamadı; İçerik Analizi'ni yeniden çalıştır.",
+    "Clip {n}": "Klip {n}",
+    "Clip {n} of {count}": "Klip {n} / {count}",
+    "{n} clips made:": "{n} klip üretildi:",
+    "{n}. {start} - {end}, {seconds:.0f} s: {path}": "{n}. {start} - {end}, {seconds:.0f} sn: {path}",
+    "The subtitles are automatic; read them before publishing.":
+        "Altyazılar otomatiktir; yayınlamadan önce oku.",
+    "Folder: {path}": "Klasör: {path}",
     "Puts a 2.5 second cover showing the kicker and headline at the start.":
         "Başa, üst yazı ve başlığı gösteren 2,5 saniyelik kapak koyar.",
     "Write the start and end time": "Başlangıç ve bitiş zamanını yaz",

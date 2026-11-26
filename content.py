@@ -23,6 +23,7 @@ from i18n import _
 LINE_SECONDS = 20.0  # a transcript line of the prompt spans at most this long
 SHORTEST_CHAPTER = 10.0  # YouTube ignores the chapters when one is shorter
 FEWEST_CHAPTERS = 3  # and when there are fewer
+HEADLINE_LINE = 24  # characters; a longer clip headline is split into two lines
 
 # The prompt and the texts are in the language of the speech, not of the interface.
 WORDING = {
@@ -38,7 +39,7 @@ Bu dökümden YouTube'a yükleme için şunları hazırla. YALNIZCA aşağıdaki
   "description": "YouTube açıklaması",
   "chapters": [{{"time": "0:00", "title": "bölüm başlığı", "kj": "EKRAN YAZISI"}}],
   "tags": ["etiket"],
-  "clips": [{{"start": "12:30", "end": "13:25", "headline": "klip başlığı", "why": "neden ilgi çeker"}}]
+  "clips": [{{"start": "12:30", "end": "13:25", "headline": "klip başlığı", "lines": ["“KLİBİN ÜSTÜNE", "YAZILACAK SÖZ”"], "why": "neden ilgi çeker"}}]
 }}
 
 Kurallar:
@@ -48,6 +49,7 @@ Kurallar:
 - Her bölümün "kj" alanı, o bölüm başlarken ekranın altında gösterilecek yazıdır: sorulan soru ya da konunun kendisi, en çok 45 karakter, büyük harfle. Örnek: "TUZLA'NIN İMAR SORUNU NASIL ÇÖZÜLÜR?"
 - Etiketler: 10-15 tane.
 - Klipler: 3-5 tane; her biri 30-90 saniye; kendi başına anlaşılan ve güçlü bir sözle başlayan bir bölüm. Başlangıç ve bitişi dökümdeki satır zamanlarından seç.
+- Her klibin "lines" alanı, dikey klibin üstüne yazılacak manşettir: klipte söylenen en çarpıcı söz, tırnak içinde, büyük harfle, iki satıra bölünmüş; her satır en çok 24 karakter.
 - Dökümde yanlış yazılmış sözcükleri, özellikle özel adları, doğru yazımıyla kullan.
 - Bilgi uydurma; yalnızca dökümde söylenenlere dayan.
 
@@ -72,7 +74,7 @@ From this transcript prepare the following for the upload. Answer ONLY in the fo
   "description": "the YouTube description",
   "chapters": [{{"time": "0:00", "title": "chapter title", "kj": "ON-SCREEN TITLE"}}],
   "tags": ["tag"],
-  "clips": [{{"start": "12:30", "end": "13:25", "headline": "clip headline", "why": "why it draws attention"}}]
+  "clips": [{{"start": "12:30", "end": "13:25", "headline": "clip headline", "lines": ["“THE WORDS WRITTEN", "ON THE CLIP”"], "why": "why it draws attention"}}]
 }}
 
 Rules:
@@ -82,6 +84,7 @@ Rules:
 - The "kj" of each chapter is the line shown at the bottom of the screen as the chapter begins: the question asked or the subject itself, at most 45 characters, in capitals. Example: "HOW CAN THE ZONING PROBLEM BE SOLVED?"
 - Tags: 10-15.
 - Clips: 3-5; each 30-90 seconds; a passage that stands on its own and opens with a strong sentence. Take the start and end from the times of the transcript lines.
+- The "lines" of each clip are the headline written on the vertical clip: the most striking words said in it, in quotation marks, in capitals, split into two lines of at most 24 characters each.
 - Where the transcript misspells words, proper names above all, use the right spelling.
 - Do not invent anything; rely only on what is said in the transcript.
 
@@ -190,6 +193,17 @@ def _texts(value):
     return [str(v).strip() for v in value if str(v).strip()] if isinstance(value, list) else []
 
 
+def two_lines(text, longest=HEADLINE_LINE):
+    """A headline split into at most two lines for a vertical clip, at the space nearest the middle
+    when it does not fit on one."""
+    text = " ".join(str(text).split())
+    if len(text) <= longest or " " not in text:
+        return [text] if text else []
+    spaces = [i for i, c in enumerate(text) if c == " "]
+    cut = min(spaces, key=lambda i: abs(i - len(text) / 2))
+    return [text[:cut], text[cut + 1:]]
+
+
 def parse_answer(text, length):
     """Read the AI's answer: a dict with titles, summary, description, chapters, tags and clips,
     put in order and checked against the length of the timeline (in seconds)."""
@@ -224,7 +238,9 @@ def parse_answer(text, length):
         except (DavarError, KeyError, TypeError):
             continue
         if 0 <= start < end <= length + 1:
-            clips.append({"start": start, "end": min(end, length), "headline": str(clip.get("headline", "")).strip(),
+            headline = str(clip.get("headline", "")).strip()
+            clips.append({"start": start, "end": min(end, length), "headline": headline,
+                          "lines": _texts(clip.get("lines"))[:2] if clip.get("lines") else two_lines(headline),
                           "why": str(clip.get("why", "")).strip()})
     # the on-screen titles of the chapters, for the topic titles; not the opening chapter
     topics = [(at, screen.get(at, title)) for at, title in kept[1:]]
@@ -303,6 +319,38 @@ def finish(video, answer_text, folder=None, language="tr"):
     (target / (video.stem + "_content.json")).write_text(json.dumps(saved, ensure_ascii=False, indent=2),
                                                          encoding="utf-8")
     return {"output": output, "answer": answer, "on_timeline": on_timeline}
+
+
+def clip_candidates(video, folder=None):
+    """The social clip candidates of the video's Content Analysis, with their times in the
+    video, as Social Clips takes them: a list of dicts with start, end, headline, lines and why.
+    An empty list when Content Analysis has not been run."""
+    video = Path(video)
+    target = Path(folder) if folder else video.parent
+    path = target / (video.stem + "_content.json")
+    if not path.is_file():
+        return []
+    try:
+        saved = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        raise DavarError(_("{path} could not be read; run Content Analysis again.").format(path=path))
+    parts, fps = None, 1.0
+    if saved.get("on_timeline"):  # the AI's times are on the Rough Cut timeline
+        info = video_info(video)
+        fps = float(info["fps"])
+        parts, on_timeline = timeline_of(video, folder, info)
+        if not on_timeline:
+            parts = None
+    found = []
+    for clip in saved.get("clips") or []:
+        start, end = float(clip["start"]), float(clip["end"])
+        if parts:
+            start, end = video_moment(parts, fps, start), video_moment(parts, fps, end)
+        headline = str(clip.get("headline", ""))
+        found.append({"start": start, "end": end, "headline": headline,
+                      "lines": [str(x) for x in clip.get("lines") or two_lines(headline)][:2],
+                      "why": str(clip.get("why", ""))})
+    return found
 
 
 def report_prompt(r, copied=True):

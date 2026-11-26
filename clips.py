@@ -6,6 +6,9 @@ headline on top, optional subtitles (from the speech) and an intro cover. When t
 video has a Rough Cut timeline, its cuts are applied inside the range: the silences,
 hesitations and trimmed parts are left out of the clip, and the subtitles follow.
 
+The social clip candidates of Content Analysis can be made one after the other
+(make_clips); their ranges are first fitted to whole sentences of the transcript.
+
     python clips.py "video.mp4" 13:06 13:56 --headline "TRAFFIC IN TUZLA" --subtitles
 """
 
@@ -152,6 +155,73 @@ def _transcribe_range(video, start, duration, language):
             else:
                 words.append((piece, w.start, w.end))
     return words
+
+
+# An AI picks a clip's range from transcript lines of about 20 seconds, so it seldom starts
+# or ends with a sentence. It is moved to the sentences around it.
+SENTENCE_BACK = 4.0  # seconds a start may move back to the beginning of its sentence
+SENTENCE_AHEAD = 4.0  # or ahead to the beginning of the next one
+SENTENCE_LATER = 6.0  # seconds an end may move on to the end of its sentence
+SENTENCE_EARLIER = 6.0  # or back to the end of the sentence before
+ENDS = ".?!…"
+
+
+def _sentence_end(text):
+    return str(text).rstrip("\"'”’»)]").endswith(tuple(ENDS))
+
+
+def fit_to_sentences(words, start, end):
+    """(start, end) in seconds moved to whole sentences of the transcript `words`
+    ((text, start, end), in order): the start to the beginning of a sentence and the end to
+    the end of one, each to the nearer one within reach; a time with none near stays."""
+    words = list(words or ())
+    if not words:
+        return start, end
+    begins = [w[1] for n, w in enumerate(words) if n == 0 or _sentence_end(words[n - 1][0])]
+    finishes = [w[2] for w in words if _sentence_end(w[0])]
+    back = [t for t in begins if start - SENTENCE_BACK <= t <= start + 0.05]
+    ahead = [t for t in begins if start < t <= start + SENTENCE_AHEAD]
+    new_start = max(back) if back else min(ahead) if ahead else start
+    later = [t for t in finishes if end - 0.05 <= t <= end + SENTENCE_LATER]
+    earlier = [t for t in finishes if end - SENTENCE_EARLIER <= t < end - 0.05]
+    new_end = min(later) if later else max(earlier) if earlier else end
+    if new_end - new_start < 5:  # a clip is not shortened to a few words
+        return start, end
+    return new_start, new_end
+
+
+def clip_name(n, headline):
+    """The file name of the n-th clip: "Clip 1 - <headline>.mp4", without characters a file name cannot hold."""
+    words = re.sub(r'[\\/:*?"<>|“”‘’«»\n\r\t]', " ", str(headline)).split()
+    text = ""
+    for word in words:  # whole words, up to about 60 characters
+        if text and len(text) + 1 + len(word) > 60:
+            break
+        text = f"{text} {word}".strip()
+    text = text[:60].strip(" .")
+    return _("Clip {n}").format(n=n) + (f" - {text}" if text else "") + ".mp4"
+
+
+def make_clips(video, candidates, folder=None, kicker="", horizontal=0.5, subtitles=False, cover=False,
+               language="tr", words=None, parts=None, progress=None):
+    """Make each of `candidates` (dicts with start, end, lines and headline, as
+    content.clip_candidates gives them) with make_clip, one after the other, into
+    `folder` (next to the video by default) as "Clip 1 - <headline>.mp4" and so on.
+    Returns the results of make_clip, each with its "n" and "headline"."""
+    video = Path(video)
+    target = Path(folder) if folder else video.parent
+    made = []
+    for n, clip in enumerate(candidates, 1):
+        def step(percent, text, n=n):
+            if progress:
+                progress((len(made) + percent / 100) / len(candidates) * 100,
+                         _("Clip {n} of {count}").format(n=n, count=len(candidates)) + ": " + text)
+        result = make_clip(video, clip["start"], clip["end"], output=target / clip_name(clip.get("n", n), clip["headline"]),
+                           kicker=kicker, headline=clip.get("lines") or [clip["headline"]], horizontal=horizontal,
+                           subtitles=subtitles, cover=cover, language=language, words=words, parts=parts,
+                           progress=step)
+        made.append({**result, "n": clip.get("n", n), "headline": clip["headline"]})
+    return made
 
 
 def kept_in_range(parts, fps, start, end):
@@ -346,6 +416,19 @@ def report(r):
         lines.append(_("Subtitles: {n} lines (automatic; read them before publishing)").format(n=r["subtitle_lines"])
                      if r["subtitle_lines"] else _("Subtitles: no speech found, none added"))
     lines.append("\n" + _("Video written: {path}").format(path=r["output"]))
+    return "\n".join(lines)
+
+
+def report_many(results):
+    """What make_clips made, as readable text."""
+    lines = [_("{n} clips made:").format(n=len(results))]
+    for r in results:
+        lines.append("  " + _("{n}. {start} - {end}, {seconds:.0f} s: {path}").format(
+            n=r["n"], start=format_time(r["start"]), end=format_time(r["end"]), seconds=r["duration"],
+            path=r["output"].name))
+    if any(r["subtitles"] for r in results):
+        lines.append(_("The subtitles are automatic; read them before publishing."))
+    lines.append(_("Folder: {path}").format(path=results[0]["output"].parent) if results else "")
     return "\n".join(lines)
 
 
